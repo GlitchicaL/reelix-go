@@ -125,6 +125,9 @@ func scanVideos(collectionPath string, vaultID int, collectionID int) ([]db.Vide
 			videos = append(videos, db.Video{
 				Title:        metadata.Title,
 				Slug:         folderName,
+				Studio:       metadata.Studio,
+				Tags:         metadata.Tags,
+				Actors:       metadata.Actors,
 				VaultID:      vaultID,
 				CollectionID: collectionID,
 			})
@@ -135,8 +138,10 @@ func scanVideos(collectionPath string, vaultID int, collectionID int) ([]db.Vide
 }
 
 type VideoMetadata struct {
-	Title  string   `xml:"title"`
-	Actors []string `xml:"actors"`
+	Title  string     `xml:"title"`
+	Studio string     `xml:"studio"`
+	Tags   []string   `xml:"tag"`
+	Actors []db.Actor `xml:"actor"`
 }
 
 func parseNfoFile(nfoPath string) (VideoMetadata, error) {
