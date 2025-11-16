@@ -37,8 +37,9 @@ type Video struct {
 }
 
 type Actor struct {
-	Name string `json:"name"`
-	Type string `json:"type"`
+	ID   int    `json:"actorId"`
+	Name string `xml:"name" json:"name"`
+	Slug string `json:"slug"`
 }
 
 func Connect(dbURL string) (*pgxpool.Pool, error) {
@@ -141,10 +142,31 @@ func CreateVideo(video Video) error {
 			return fmt.Errorf("failed to create tag %v: %w", tag, err)
 		}
 
-		err = LinkVideoTag(*tagId, videoId, tx)
+		err = LinkVideoTag(videoId, *tagId, tx)
 
 		if err != nil {
 			return fmt.Errorf("failed to link tag %v to video %v: %w", tag, videoId, err)
+		}
+	}
+
+	for _, actor := range video.Actors {
+		var actorId *int
+		var err error
+
+		actorId, err = GetActor(actor.Name)
+
+		if err != nil {
+			actorId, err = CreateActor(actor)
+
+			if err != nil {
+				return fmt.Errorf("failed to create actor %v: %w", actor.Name, err)
+			}
+		}
+
+		err = LinkVideoActor(videoId, *actorId, tx)
+
+		if err != nil {
+			return fmt.Errorf("failed to link actor %v to video %v: %w", actor.Name, videoId, err)
 		}
 	}
 
@@ -181,7 +203,7 @@ func CreateTag(tag string, tx pgx.Tx) (*int, error) {
 	return &tagId, nil
 }
 
-func LinkVideoTag(tagId int, videoId int, tx pgx.Tx) error {
+func LinkVideoTag(videoId int, tagId int, tx pgx.Tx) error {
 	query := `
 			INSERT INTO video_tags (video_id, tag_id) VALUES ($1, $2)
 			ON CONFLICT DO NOTHING
@@ -196,6 +218,51 @@ func LinkVideoTag(tagId int, videoId int, tx pgx.Tx) error {
 
 	if err != nil {
 		return fmt.Errorf("failed to link tag %v to video: %w", tagId, err)
+	}
+
+	return nil
+}
+
+func CreateActor(actor Actor) (*int, error) {
+	query := `
+		INSERT INTO actors (name, slug) VALUES ($1, $2)
+		ON CONFLICT (name, slug) DO UPDATE SET name = EXCLUDED.name
+		RETURNING id
+	`
+
+	var actorId int
+
+	err := db.QueryRow(
+		context.Background(),
+		query,
+		actor.Name,
+		actor.Slug,
+	).Scan(&actorId)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to insert actor %s: %w", actor.Name, err)
+	}
+
+	log.Printf("actor added: %v", actor.Name)
+
+	return &actorId, nil
+}
+
+func LinkVideoActor(videoId int, actorId int, tx pgx.Tx) error {
+	query := `
+		INSERT INTO video_actors (video_id, actor_id) VALUES ($1, $2)
+		ON CONFLICT DO NOTHING
+	`
+
+	_, err := tx.Exec(
+		context.Background(),
+		query,
+		videoId,
+		actorId,
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to get actor %v to video: %w", actorId, err)
 	}
 
 	return nil
@@ -334,7 +401,13 @@ func GetVideo(collectionId int, videoSlug string) (*Video, error) {
 			v.studio,
             c.name AS collection_name,
             va.name AS vault_name,
-			COALESCE(ARRAY_AGG(DISTINCT t.name) FILTER (WHERE t.name IS NOT NULL), '{}') AS tags
+			COALESCE(ARRAY_AGG(DISTINCT t.name) FILTER (WHERE t.name IS NOT NULL), '{}') AS tags,
+			COALESCE(
+				json_agg(
+					DISTINCT jsonb_build_object('name', a.name, 'slug', a.slug)
+				) FILTER (WHERE a.name IS NOT NULL),
+				'[]'
+			) AS actors
         FROM 
             videos v
         JOIN 
@@ -345,6 +418,10 @@ func GetVideo(collectionId int, videoSlug string) (*Video, error) {
     		video_tags vt ON vt.video_id = v.id
 		LEFT JOIN 
 			tags t ON t.id = vt.tag_id
+		LEFT JOIN 
+        	video_actors va2 ON va2.video_id = v.id
+		LEFT JOIN 
+        	actors a ON a.id = va2.actor_id
         WHERE 
             v.collection_id = $1
         AND 
@@ -361,11 +438,37 @@ func GetVideo(collectionId int, videoSlug string) (*Video, error) {
 		query,
 		collectionId,
 		videoSlug,
-	).Scan(&v.Title, &v.Slug, &v.Studio, &v.CollectionName, &v.VaultName, &v.Tags)
+	).Scan(&v.Title, &v.Slug, &v.Studio, &v.CollectionName, &v.VaultName, &v.Tags, &v.Actors)
 
 	if err != nil {
 		return nil, fmt.Errorf("error fetching video: %v", err)
 	}
 
 	return &v, nil
+}
+
+func GetActor(name string) (*int, error) {
+	query := `
+		SELECT 
+			id
+		FROM
+			actors
+		WHERE	
+			name = $1
+		LIMIT 1
+	`
+
+	var a Actor
+
+	err := db.QueryRow(
+		context.Background(),
+		query,
+		name,
+	).Scan(&a.ID)
+
+	if err != nil {
+		return nil, fmt.Errorf("error fetching actor: %v", err)
+	}
+
+	return &a.ID, nil
 }

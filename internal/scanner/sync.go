@@ -48,3 +48,17 @@ func SyncVideos(videos []db.Video) error {
 
 	return nil
 }
+
+func SyncActors(actors []db.Actor) error {
+	for _, a := range actors {
+		_, err := db.CreateActor(a)
+
+		if err != nil {
+			return fmt.Errorf("db sync insert error: %v", err)
+		}
+
+		log.Printf("synced actor: %v", a.Name)
+	}
+
+	return nil
+}

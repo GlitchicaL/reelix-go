@@ -44,7 +44,9 @@ CREATE TABLE IF NOT EXISTS video_tags (
 -- Actors Table
 CREATE TABLE IF NOT EXISTS actors (
     id         SERIAL PRIMARY KEY,
-    name       TEXT NOT NULL
+    name       TEXT NOT NULL,
+    slug       TEXT NOT NULL,
+    UNIQUE (name, slug)
 );
 
 -- Join Table: video_actors (many-to-many)

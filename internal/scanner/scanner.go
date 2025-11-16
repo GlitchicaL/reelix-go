@@ -6,12 +6,14 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
+	"unicode"
 
 	"reelix-go/internal/db"
 )
 
 func Scan() {
-	root := "/videos/"
+	root := "/videos"
 
 	vaults, err := scanVaults(root)
 
@@ -24,7 +26,17 @@ func Scan() {
 	}
 
 	for i, v := range vaults {
-		vaultPath := filepath.Join(root, v.Name)
+		vaultPath := filepath.Join(root, "/Vaults", v.Name)
+
+		actors, err := scanActors(root, v.Name)
+
+		if err != nil {
+			log.Println("actor scan error: %w", err)
+		}
+
+		if err := SyncActors(actors); err != nil {
+			log.Println("actors sync error:", err)
+		}
 
 		collections, err := scanCollections(vaultPath, i+1)
 
@@ -37,7 +49,7 @@ func Scan() {
 		}
 
 		for j, c := range collections {
-			collectionPath := filepath.Join(root, v.Name, c.Name)
+			collectionPath := filepath.Join(root, "/Vaults", v.Name, c.Name)
 
 			videos, err := scanVideos(collectionPath, i+1, j+1)
 
@@ -54,7 +66,8 @@ func Scan() {
 }
 
 func scanVaults(rootPath string) ([]db.Vault, error) {
-	entries, err := os.ReadDir(rootPath)
+	vaultsPath := filepath.Join(rootPath, "/Vaults")
+	entries, err := os.ReadDir(vaultsPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read vault: %w", err)
 	}
@@ -63,8 +76,6 @@ func scanVaults(rootPath string) ([]db.Vault, error) {
 
 	for _, entry := range entries {
 		if entry.IsDir() {
-			// vaultPath := filepath.Join(rootPath, entry.Name())
-
 			vaults = append(vaults, db.Vault{
 				Name: entry.Name(),
 			})
@@ -74,6 +85,49 @@ func scanVaults(rootPath string) ([]db.Vault, error) {
 	}
 
 	return vaults, nil
+}
+
+func scanActors(rootPath string, vaultName string) ([]db.Actor, error) {
+	actorsPath := filepath.Join(rootPath, "/Actors", vaultName)
+	entries, err := os.ReadDir(actorsPath)
+
+	log.Printf("path %v", actorsPath)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to read actors: %w", err)
+	}
+
+	var actors []db.Actor
+
+	for _, entry := range entries {
+		actor := strings.TrimSuffix(entry.Name(), ".jpg")
+		parts := strings.Split(actor, "_")
+		name := strings.Join(parts, " ")
+
+		log.Printf("actor %v", ToTitleCase(name))
+
+		actors = append(actors, db.Actor{
+			Name: ToTitleCase(name),
+			Slug: actor,
+		})
+	}
+
+	return actors, nil
+}
+
+func ToTitleCase(s string) string {
+	words := strings.Fields(s) // split by whitespace
+	for i, word := range words {
+		if len(word) > 0 {
+			runes := []rune(word)
+			runes[0] = unicode.ToUpper(runes[0]) // uppercase first letter
+			for j := 1; j < len(runes); j++ {
+				runes[j] = unicode.ToLower(runes[j]) // lowercase the rest
+			}
+			words[i] = string(runes)
+		}
+	}
+	return strings.Join(words, " ")
 }
 
 func scanCollections(vaultPath string, vaultID int) ([]db.Collection, error) {
