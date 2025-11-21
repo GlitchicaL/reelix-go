@@ -7,32 +7,43 @@ import (
 	"reelix-go/internal/db"
 )
 
-func SyncVaults(vaults []db.Vault) error {
-	for _, v := range vaults {
-		err := db.CreateVault(v)
+func SyncVaults(vaults []db.Vault) ([]db.Vault, error) {
+	// We use make() here because at this point we know the size of
+	// the vault and we won't need to reallocate memory if we were
+	// to just loop and append.
+	names := make([]string, len(vaults))
 
-		if err != nil {
-			return fmt.Errorf("db vault insert error: %v", err)
-		}
-
-		log.Printf("synced vault: %v", v.Name)
+	for i, v := range vaults {
+		names[i] = v.Name
 	}
 
-	return nil
+	dbVaults, err := db.CreateVaults(names)
+
+	if err != nil {
+		return nil, fmt.Errorf("db vault insert error: %v", err)
+	}
+
+	return dbVaults, nil
 }
 
-func SyncCollections(collections []db.Collection) error {
-	for _, c := range collections {
-		err := db.CreateCollection(c)
+func SyncCollections(collections []db.Collection) ([]db.Collection, error) {
+	names := make([]string, len(collections))
+	paths := make([]string, len(collections))
+	vaultIds := make([]int, len(collections))
 
-		if err != nil {
-			return fmt.Errorf("db collection insert error: %v", err)
-		}
-
-		log.Printf("synced collection: %v (vault: %v)", c.Name, c.VaultID)
+	for i, c := range collections {
+		names[i] = c.Name
+		paths[i] = c.Path
+		vaultIds[i] = c.VaultID
 	}
 
-	return nil
+	dbCollections, err := db.CreateCollections(names, paths, vaultIds)
+
+	if err != nil {
+		return nil, fmt.Errorf("db vault insert error: %v", err)
+	}
+
+	return dbCollections, nil
 }
 
 func SyncVideos(videos []db.Video) error {

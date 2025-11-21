@@ -25,6 +25,7 @@ type Collection struct {
 }
 
 type Video struct {
+	ID             int      `json:"id"`
 	Title          string   `json:"title"`
 	Slug           string   `json:"slug"`
 	Studio         string   `json:"studio"`
@@ -58,44 +59,84 @@ func Close() {
 	}
 }
 
-func CreateVault(vault Vault) error {
+func CreateVaults(names []string) ([]Vault, error) {
 	query := `
-		INSERT INTO vaults (name)
-		VALUES ($1)
-		ON CONFLICT (name) DO NOTHING
+        INSERT INTO vaults (name)
+        SELECT UNNEST($1::text[])
+        ON CONFLICT (name)
+        DO UPDATE SET name = EXCLUDED.name
+        RETURNING id, name;
 	`
 
-	_, err := db.Exec(
+	rows, err := db.Query(
 		context.Background(),
 		query,
-		vault.Name,
-	)
-
-	return err
-}
-
-func CreateCollection(collection Collection) error {
-	query := `
-		INSERT INTO collections (name, path, vault_id)
-		VALUES ($1, $2, $3)
-		ON CONFLICT (name, vault_id) DO NOTHING
-	`
-
-	_, err := db.Exec(
-		context.Background(),
-		query,
-		collection.Name,
-		collection.Path,
-		collection.VaultID,
+		names,
 	)
 
 	if err != nil {
-		return fmt.Errorf("db insert error: %w", err)
+		return nil, err
 	}
 
-	log.Printf("collection added: %v (vault: %v)", collection.Name, collection.VaultID)
+	defer rows.Close()
 
-	return nil
+	var dbVaults []Vault
+
+	for rows.Next() {
+		var v Vault
+
+		if err := rows.Scan(&v.ID, &v.Name); err != nil {
+			return nil, err
+		}
+
+		dbVaults = append(dbVaults, v)
+	}
+
+	return dbVaults, nil
+}
+
+func CreateCollections(names []string, paths []string, vaultIds []int) ([]Collection, error) {
+	query := `
+		INSERT INTO collections (name, path, vault_id)
+		SELECT *
+		FROM UNNEST(
+			$1::text[],
+			$2::text[],
+			$3::int[]
+		)
+		ON CONFLICT (name, vault_id) 
+		DO UPDATE SET
+			path = EXCLUDED.path
+		RETURNING id, name, path, vault_id
+	`
+
+	rows, err := db.Query(
+		context.Background(),
+		query,
+		names,
+		paths,
+		vaultIds,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	var dbCollections []Collection
+
+	for rows.Next() {
+		var c Collection
+
+		if err := rows.Scan(&c.ID, &c.Name, &c.Path, &c.VaultID); err != nil {
+			return nil, err
+		}
+
+		dbCollections = append(dbCollections, c)
+	}
+
+	return dbCollections, nil
 }
 
 func CreateVideo(video Video) error {
@@ -314,7 +355,7 @@ func GetCollections(vaultId int) ([]Collection, error) {
 	rows, err := db.Query(
 		context.Background(),
 		query,
-		1,
+		vaultId,
 	)
 
 	if err != nil {
@@ -343,9 +384,10 @@ func GetCollections(vaultId int) ([]Collection, error) {
 	return collections, nil
 }
 
-func GetVideos(collectionId int) ([]Video, error) {
+func GetVideos(vaultId int, collectionId int) ([]Video, error) {
 	query := `
 		SELECT 
+			v.id,
 			v.title,
 			v.slug,
 			v.studio,
@@ -358,13 +400,14 @@ func GetVideos(collectionId int) ([]Video, error) {
 		JOIN 
 			vaults va ON v.vault_id = va.id
 		WHERE 
-			c.id = $1
+			c.id = $1 AND va.id = $2
 	`
 
 	rows, err := db.Query(
 		context.Background(),
 		query,
 		collectionId,
+		vaultId,
 	)
 
 	if err != nil {
@@ -377,7 +420,7 @@ func GetVideos(collectionId int) ([]Video, error) {
 
 	for rows.Next() {
 		var v Video
-		if err := rows.Scan(&v.Title, &v.Slug, &v.Studio, &v.CollectionName, &v.VaultName); err != nil {
+		if err := rows.Scan(&v.ID, &v.Title, &v.Slug, &v.Studio, &v.CollectionName, &v.VaultName); err != nil {
 			log.Fatal("videos scan failed")
 			return nil, err
 		}
@@ -393,7 +436,7 @@ func GetVideos(collectionId int) ([]Video, error) {
 	return videos, nil
 }
 
-func GetVideo(collectionId int, videoSlug string) (*Video, error) {
+func GetVideo(vaultId int, collectionId int, videoId int) (*Video, error) {
 	query := `
         SELECT 
             v.title,
@@ -425,7 +468,9 @@ func GetVideo(collectionId int, videoSlug string) (*Video, error) {
         WHERE 
             v.collection_id = $1
         AND 
-            v.slug = $2
+            v.id = $2
+		AND
+			va.id = $3
 		GROUP BY 
     		v.id, c.name, va.name
         LIMIT 1
@@ -437,7 +482,8 @@ func GetVideo(collectionId int, videoSlug string) (*Video, error) {
 		context.Background(),
 		query,
 		collectionId,
-		videoSlug,
+		videoId,
+		vaultId,
 	).Scan(&v.Title, &v.Slug, &v.Studio, &v.CollectionName, &v.VaultName, &v.Tags, &v.Actors)
 
 	if err != nil {

@@ -27,10 +27,18 @@ func vaultHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func collectionHandler(w http.ResponseWriter, r *http.Request) {
-	collections, err := db.GetCollections(1)
+	vars := mux.Vars(r)
+
+	vaultId, err := strconv.Atoi(vars["vaultId"])
 
 	if err != nil {
-		log.Fatalf("error fetching collections from vault %v", 1)
+		log.Fatalf("invalid vault id")
+	}
+
+	collections, err := db.GetCollections(vaultId)
+
+	if err != nil {
+		log.Fatalf("error fetching collections from vault %v", vaultId)
 	}
 
 	// Respond with the metadata as JSON
@@ -43,13 +51,20 @@ func collectionHandler(w http.ResponseWriter, r *http.Request) {
 
 func videosHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	collectionId, err := strconv.Atoi(vars["id"])
+
+	vaultId, err := strconv.Atoi(vars["vaultId"])
+
+	if err != nil {
+		log.Fatalf("invalid vault id")
+	}
+
+	collectionId, err := strconv.Atoi(vars["collectionId"])
 
 	if err != nil {
 		log.Fatalf("invalid collection id")
 	}
 
-	videos, err := db.GetVideos(collectionId)
+	videos, err := db.GetVideos(vaultId, collectionId)
 
 	if err != nil {
 		log.Fatalf("error fetching videos from collection %v", collectionId)
@@ -65,10 +80,12 @@ func videosHandler(w http.ResponseWriter, r *http.Request) {
 
 func videoHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	collectionId, _ := strconv.Atoi(vars["collectionId"])
-	videoSlug := vars["videoSlug"]
 
-	video, err := db.GetVideo(collectionId, videoSlug)
+	vaultId, _ := strconv.Atoi(vars["vaultId"])
+	collectionId, _ := strconv.Atoi(vars["collectionId"])
+	videoId, _ := strconv.Atoi(vars["videoId"])
+
+	video, err := db.GetVideo(vaultId, collectionId, videoId)
 
 	if err != nil {
 		log.Fatalf("error fetching videos from collection %v", collectionId)

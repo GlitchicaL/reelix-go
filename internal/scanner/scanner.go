@@ -21,11 +21,13 @@ func Scan() {
 		log.Println("scan vaults error: %w", err)
 	}
 
-	if err := SyncVaults(vaults); err != nil {
+	dbVaults, err := SyncVaults(vaults)
+
+	if err != nil {
 		log.Println("vault sync error:", err)
 	}
 
-	for i, v := range vaults {
+	for _, v := range dbVaults {
 		vaultPath := filepath.Join(root, "/Vaults", v.Name)
 
 		actors, err := scanActors(root, v.Name)
@@ -38,20 +40,22 @@ func Scan() {
 			log.Println("actors sync error:", err)
 		}
 
-		collections, err := scanCollections(vaultPath, i+1)
+		collections, err := scanCollections(vaultPath, v.ID)
 
 		if err != nil {
 			log.Println("scan collections error: %w", err)
 		}
 
-		if err := SyncCollections(collections); err != nil {
+		dbCollections, err := SyncCollections(collections)
+
+		if err != nil {
 			log.Println("collection sync error:", err)
 		}
 
-		for j, c := range collections {
+		for _, c := range dbCollections {
 			collectionPath := filepath.Join(root, "/Vaults", v.Name, c.Name)
 
-			videos, err := scanVideos(collectionPath, i+1, j+1)
+			videos, err := scanVideos(collectionPath, v.ID, c.ID)
 
 			if err != nil {
 				log.Println("scan videos error: %w", err)

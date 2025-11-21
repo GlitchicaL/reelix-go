@@ -9,11 +9,10 @@ func NewRouter() *mux.Router {
 	r := mux.NewRouter()
 
 	// Routes
-	r.HandleFunc("/api/vaults", vaultHandler).Methods("GET")           // For vaults
-	r.HandleFunc("/api/collections", collectionHandler).Methods("GET") // For collections
-	r.HandleFunc("/api/videos/{id}", videosHandler).Methods("GET")     // For videos
-
-	r.HandleFunc("/api/video/{collectionId}/{videoSlug}", videoHandler).Methods("GET") // For videos
+	r.HandleFunc("/api/vaults", vaultHandler).Methods("GET")                                   // For vaults
+	r.HandleFunc("/api/collections/{vaultId}", collectionHandler).Methods("GET")               // For collections
+	r.HandleFunc("/api/videos/{vaultId}/{collectionId}", videosHandler).Methods("GET")         // For videos
+	r.HandleFunc("/api/video/{vaultId}/{collectionId}/{videoId}", videoHandler).Methods("GET") // For videos
 
 	return r
 }
