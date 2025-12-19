@@ -57,3 +57,13 @@ CREATE TABLE IF NOT EXISTS video_actors (
     FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE,
     FOREIGN KEY (actor_id) REFERENCES actors(id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS galleries (
+    id              SERIAL PRIMARY KEY,
+    title           TEXT NOT NULL,
+    slug            TEXT NOT NULL,
+    image_count     INTEGER,
+    vault_id        INTEGER NOT NULL,
+    FOREIGN KEY (vault_id) REFERENCES vaults(id) ON DELETE CASCADE,
+    UNIQUE (title, slug)
+)

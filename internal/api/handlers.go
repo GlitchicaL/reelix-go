@@ -11,7 +11,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
-func vaultHandler(w http.ResponseWriter, r *http.Request) {
+func vaultsHandler(w http.ResponseWriter, r *http.Request) {
 	vaults, err := db.GetVaults()
 
 	if err != nil {
@@ -26,7 +26,30 @@ func vaultHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func collectionHandler(w http.ResponseWriter, r *http.Request) {
+func vaultHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+
+	vaultId, err := strconv.Atoi(vars["vaultId"])
+
+	if err != nil {
+		log.Fatalf("invalid vault id")
+	}
+
+	vault, err := db.GetVault(vaultId)
+
+	if err != nil {
+		log.Fatalf("error fetching vault")
+	}
+
+	// Respond with the metadata as JSON
+	w.Header().Set("Content-Type", "application/json")
+
+	if err := json.NewEncoder(w).Encode(vault); err != nil {
+		http.Error(w, "Unable to encode metadata", http.StatusInternalServerError)
+	}
+}
+
+func collectionsHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 
 	vaultId, err := strconv.Atoi(vars["vaultId"])
@@ -95,6 +118,64 @@ func videoHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	if err := json.NewEncoder(w).Encode(video); err != nil {
+		http.Error(w, "Unable to encode metadata", http.StatusInternalServerError)
+	}
+}
+
+func actorsHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+
+	vaultId, _ := strconv.Atoi(vars["vaultId"])
+
+	actors, totalCount, err := db.GetActors()
+
+	type ActorsMetadata struct {
+		Actors     []db.Actor `json:"actors"`
+		TotalCount int        `json:"totalCount"`
+	}
+
+	data := ActorsMetadata{
+		Actors:     actors,
+		TotalCount: totalCount,
+	}
+
+	if err != nil {
+		log.Fatalf("error fetching actors from vault %v", vaultId)
+	}
+
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		http.Error(w, "Unable to encode metadata", http.StatusInternalServerError)
+	}
+}
+
+func galleriesHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+
+	vaultId, _ := strconv.Atoi(vars["vaultId"])
+
+	galleries, err := db.GetGalleries(vaultId)
+
+	if err != nil {
+		log.Fatalf("error fetching galleries from vault %v", vaultId)
+	}
+
+	if err := json.NewEncoder(w).Encode(galleries); err != nil {
+		http.Error(w, "Unable to encode metadata", http.StatusInternalServerError)
+	}
+}
+
+func galleryHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+
+	galleryId, _ := strconv.Atoi(vars["galleryId"])
+
+	gallery, err := db.GetGallery(galleryId)
+
+	if err != nil {
+		log.Fatalf("error fetching gallery from vault %v", galleryId)
+	}
+
+	if err := json.NewEncoder(w).Encode(gallery); err != nil {
 		http.Error(w, "Unable to encode metadata", http.StatusInternalServerError)
 	}
 }

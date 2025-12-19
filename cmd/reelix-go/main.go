@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"reelix-go/internal/api"
 	"reelix-go/internal/db"
@@ -22,10 +23,21 @@ func main() {
 		os.Getenv("DB_NAME"),
 	)
 
-	_, err := db.Connect(dbURL)
+	var err error
+
+	for i := 1; i <= 30; i++ {
+		_, err = db.Connect(dbURL)
+
+		if err == nil {
+			break
+		}
+
+		log.Printf("failed to connect to database (attempt %d/30), retrying...", i)
+		time.Sleep(2 * time.Second)
+	}
 
 	if err != nil {
-		log.Fatal("failed to connect to database")
+		log.Fatal("failed to connect to database after 30 retries:", err)
 	}
 
 	defer db.Close()

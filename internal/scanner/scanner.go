@@ -7,9 +7,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"unicode"
 
 	"reelix-go/internal/db"
+	"reelix-go/internal/utils"
 )
 
 func Scan() {
@@ -28,7 +28,7 @@ func Scan() {
 	}
 
 	for _, v := range dbVaults {
-		vaultPath := filepath.Join(root, "/Vaults", v.Name)
+		vaultPath := filepath.Join(root, "/Vaults", v.Name, "/Videos")
 
 		actors, err := scanActors(root, v.Name)
 
@@ -38,6 +38,17 @@ func Scan() {
 
 		if err := SyncActors(actors); err != nil {
 			log.Println("actors sync error:", err)
+		}
+
+		galleryPath := filepath.Join(root, "/Vaults", v.Name, "/Pictures")
+		galleries, err := scanGalleries(galleryPath, v.ID)
+
+		if err != nil {
+			log.Println("scan gallery error: %w", err)
+		}
+
+		if err := SyncGalleries(galleries); err != nil {
+			log.Println("gallery sync error:", err)
 		}
 
 		collections, err := scanCollections(vaultPath, v.ID)
@@ -53,7 +64,7 @@ func Scan() {
 		}
 
 		for _, c := range dbCollections {
-			collectionPath := filepath.Join(root, "/Vaults", v.Name, c.Name)
+			collectionPath := filepath.Join(root, "/Vaults", v.Name, "/Videos", c.Name)
 
 			videos, err := scanVideos(collectionPath, v.ID, c.ID)
 
@@ -72,6 +83,7 @@ func Scan() {
 func scanVaults(rootPath string) ([]db.Vault, error) {
 	vaultsPath := filepath.Join(rootPath, "/Vaults")
 	entries, err := os.ReadDir(vaultsPath)
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to read vault: %w", err)
 	}
@@ -91,8 +103,54 @@ func scanVaults(rootPath string) ([]db.Vault, error) {
 	return vaults, nil
 }
 
+func scanGalleries(picturePath string, vaultId int) ([]db.Gallery, error) {
+	entries, err := os.ReadDir(picturePath)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to read collection: %w", err)
+	}
+
+	var galleries []db.Gallery
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			galleryName := entry.Name()
+
+			// We ignore the actors/ folder as there
+			// is a separate scanning/syncing flow for actors.
+			if galleryName == "actors" {
+				continue
+			}
+
+			galleryPath := filepath.Join(picturePath, galleryName)
+			galleryEntries, err := os.ReadDir(galleryPath)
+
+			if err != nil {
+				return nil, err
+			}
+
+			galleryImageCount := 0
+
+			for _, galleryEntry := range galleryEntries {
+				if !galleryEntry.IsDir() {
+					galleryImageCount++
+				}
+			}
+
+			galleries = append(galleries, db.Gallery{
+				Title:      utils.SnakeToTitle(galleryName),
+				Slug:       galleryName,
+				ImageCount: galleryImageCount,
+				VaultID:    vaultId,
+			})
+		}
+	}
+
+	return galleries, nil
+}
+
 func scanActors(rootPath string, vaultName string) ([]db.Actor, error) {
-	actorsPath := filepath.Join(rootPath, "/Actors", vaultName)
+	actorsPath := filepath.Join(rootPath, "/Vaults/", vaultName, "/Pictures/actors/")
 	entries, err := os.ReadDir(actorsPath)
 
 	log.Printf("path %v", actorsPath)
@@ -105,33 +163,16 @@ func scanActors(rootPath string, vaultName string) ([]db.Actor, error) {
 
 	for _, entry := range entries {
 		actor := strings.TrimSuffix(entry.Name(), ".jpg")
-		parts := strings.Split(actor, "_")
-		name := strings.Join(parts, " ")
 
-		log.Printf("actor %v", ToTitleCase(name))
+		log.Printf("scanned actor: %v", actor)
 
 		actors = append(actors, db.Actor{
-			Name: ToTitleCase(name),
+			Name: utils.SnakeToTitle(actor),
 			Slug: actor,
 		})
 	}
 
 	return actors, nil
-}
-
-func ToTitleCase(s string) string {
-	words := strings.Fields(s) // split by whitespace
-	for i, word := range words {
-		if len(word) > 0 {
-			runes := []rune(word)
-			runes[0] = unicode.ToUpper(runes[0]) // uppercase first letter
-			for j := 1; j < len(runes); j++ {
-				runes[j] = unicode.ToLower(runes[j]) // lowercase the rest
-			}
-			words[i] = string(runes)
-		}
-	}
-	return strings.Join(words, " ")
 }
 
 func scanCollections(vaultPath string, vaultID int) ([]db.Collection, error) {

@@ -26,6 +26,28 @@ func SyncVaults(vaults []db.Vault) ([]db.Vault, error) {
 	return dbVaults, nil
 }
 
+func SyncGalleries(galleries []db.Gallery) error {
+	titles := make([]string, len(galleries))
+	slugs := make([]string, len(galleries))
+	imageCounts := make([]int, len(galleries))
+	vaultIds := make([]int, len(galleries))
+
+	for i, g := range galleries {
+		titles[i] = g.Title
+		slugs[i] = g.Slug
+		imageCounts[i] = g.ImageCount
+		vaultIds[i] = g.VaultID
+	}
+
+	_, err := db.CreateGallery(titles, slugs, imageCounts, vaultIds)
+
+	if err != nil {
+		return fmt.Errorf("db gallery insert error: %v", err)
+	}
+
+	return nil
+}
+
 func SyncCollections(collections []db.Collection) ([]db.Collection, error) {
 	names := make([]string, len(collections))
 	paths := make([]string, len(collections))

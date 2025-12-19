@@ -4,9 +4,12 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"reelix-go/internal/utils"
 )
 
 var db *pgxpool.Pool
@@ -14,6 +17,15 @@ var db *pgxpool.Pool
 type Vault struct {
 	ID   int    `json:"vaultId"`
 	Name string `json:"vaultName"`
+}
+
+type Gallery struct {
+	ID         int    `json:"galleryId"`
+	Title      string `json:"title"`
+	Slug       string `json:"slug"`
+	ImageCount int    `json:"imageCount"`
+	VaultID    int    `json:"vaultId"`
+	VaultName  string `json:"vaultName"`
 }
 
 type Collection struct {
@@ -45,9 +57,19 @@ type Actor struct {
 
 func Connect(dbURL string) (*pgxpool.Pool, error) {
 	var err error
+
 	db, err = pgxpool.New(context.Background(), dbURL)
+
 	if err != nil {
 		return nil, fmt.Errorf("unable to connect to database: %w", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := db.Ping(ctx); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("database not ready: %w", err)
 	}
 
 	return db, nil
@@ -93,6 +115,55 @@ func CreateVaults(names []string) ([]Vault, error) {
 	}
 
 	return dbVaults, nil
+}
+
+func CreateGallery(titles []string, slugs []string, imageCounts []int, vaultIds []int) ([]Gallery, error) {
+	query := `
+		INSERT INTO galleries (title, slug, image_count, vault_id)
+		SELECT *
+		FROM UNNEST(
+			$1::text[],
+			$2::text[],
+			$3::int[],
+			$4::int[]
+		)
+		ON CONFLICT (title, slug) 
+		DO UPDATE SET
+			title = EXCLUDED.title,
+			slug = EXCLUDED.slug,
+			image_count = EXCLUDED.image_count,
+			vault_id = EXCLUDED.vault_id
+		RETURNING id, title, slug, image_count, vault_id
+	`
+
+	rows, err := db.Query(
+		context.Background(),
+		query,
+		titles,
+		slugs,
+		imageCounts,
+		vaultIds,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	var dbGalleries []Gallery
+
+	for rows.Next() {
+		var g Gallery
+
+		if err := rows.Scan(&g.ID, &g.Title, &g.Slug, &g.ImageCount, &g.VaultID); err != nil {
+			return nil, err
+		}
+
+		dbGalleries = append(dbGalleries, g)
+	}
+
+	return dbGalleries, nil
 }
 
 func CreateCollections(names []string, paths []string, vaultIds []int) ([]Collection, error) {
@@ -197,7 +268,12 @@ func CreateVideo(video Video) error {
 		actorId, err = GetActor(actor.Name)
 
 		if err != nil {
-			actorId, err = CreateActor(actor)
+			newActor := Actor{
+				Name: actor.Name,
+				Slug: utils.TitleToSnake(actor.Name),
+			}
+
+			actorId, err = CreateActor(newActor)
 
 			if err != nil {
 				return fmt.Errorf("failed to create actor %v: %w", actor.Name, err)
@@ -267,7 +343,9 @@ func LinkVideoTag(videoId int, tagId int, tx pgx.Tx) error {
 func CreateActor(actor Actor) (*int, error) {
 	query := `
 		INSERT INTO actors (name, slug) VALUES ($1, $2)
-		ON CONFLICT (name, slug) DO UPDATE SET name = EXCLUDED.name
+		ON CONFLICT (name, slug) DO UPDATE SET 
+			name = EXCLUDED.name,
+			slug = EXCLUDED.slug
 		RETURNING id
 	`
 
@@ -336,6 +414,24 @@ func GetVaults() ([]Vault, error) {
 	}
 
 	return vaults, nil
+}
+
+func GetVault(vaultId int) (*Vault, error) {
+	query := `SELECT id, name FROM vaults WHERE id = $1`
+
+	var va Vault
+
+	err := db.QueryRow(
+		context.Background(),
+		query,
+		vaultId,
+	).Scan(&va.ID, &va.Name)
+
+	if err != nil {
+		return nil, fmt.Errorf("error fetching video: %v", err)
+	}
+
+	return &va, nil
 }
 
 func GetCollections(vaultId int) ([]Collection, error) {
@@ -493,6 +589,47 @@ func GetVideo(vaultId int, collectionId int, videoId int) (*Video, error) {
 	return &v, nil
 }
 
+func GetActors() ([]Actor, int, error) {
+	query := `
+		SELECT
+			COUNT(*) OVER () AS total_count, 
+			id, name, slug
+		FROM 
+			actors
+	`
+
+	rows, err := db.Query(
+		context.Background(),
+		query,
+	)
+
+	if err != nil {
+		log.Fatal("actors query failed")
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var actors []Actor
+	var totalCount int
+
+	for rows.Next() {
+		var a Actor
+		if err := rows.Scan(&totalCount, &a.ID, &a.Name, &a.Slug); err != nil {
+			log.Fatal("actors scan failed")
+			return nil, 0, err
+		}
+
+		actors = append(actors, a)
+	}
+
+	if err := rows.Err(); err != nil {
+		log.Fatal("actors rows failed")
+		return nil, 0, err
+	}
+
+	return actors, totalCount, nil
+}
+
 func GetActor(name string) (*int, error) {
 	query := `
 		SELECT 
@@ -517,4 +654,85 @@ func GetActor(name string) (*int, error) {
 	}
 
 	return &a.ID, nil
+}
+
+func GetGalleries(vaultId int) ([]Gallery, error) {
+	query := `
+		SELECT 
+			g.id,
+			g.title,
+			g.slug,
+			g.image_count,
+			v.id AS vault_id,
+			v.name AS vault_name
+		FROM
+			galleries g
+		JOIN 
+			vaults v ON g.vault_id = v.id
+		WHERE	
+			g.vault_id = $1
+	`
+
+	rows, err := db.Query(
+		context.Background(),
+		query,
+		vaultId,
+	)
+
+	if err != nil {
+		log.Fatal("galleries query failed")
+		return nil, err
+	}
+	defer rows.Close()
+
+	var galleries []Gallery
+
+	for rows.Next() {
+		var g Gallery
+		if err := rows.Scan(&g.ID, &g.Title, &g.Slug, &g.ImageCount, &g.VaultID, &g.VaultName); err != nil {
+			log.Fatal("actors scan failed")
+			return nil, err
+		}
+
+		galleries = append(galleries, g)
+	}
+
+	if err := rows.Err(); err != nil {
+		log.Fatal("actors rows failed")
+		return nil, err
+	}
+
+	return galleries, nil
+}
+
+func GetGallery(galleryId int) (*Gallery, error) {
+	query := `
+		SELECT 
+			g.id,
+			g.title,
+			g.slug,
+			g.image_count,
+			v.id AS vault_id,
+			v.name AS vault_name
+		FROM
+			galleries g
+		JOIN 
+			vaults v ON g.vault_id = v.id
+		WHERE	
+			g.id = $1
+	`
+
+	var g Gallery
+
+	err := db.QueryRow(
+		context.Background(),
+		query,
+		galleryId,
+	).Scan(&g.ID, &g.Title, &g.Slug, &g.ImageCount, &g.VaultID, &g.VaultName)
+
+	if err != nil {
+		return nil, fmt.Errorf("error fetching video: %v", err)
+	}
+
+	return &g, nil
 }
