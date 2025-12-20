@@ -75,19 +75,13 @@ func collectionsHandler(w http.ResponseWriter, r *http.Request) {
 func videosHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 
-	vaultId, err := strconv.Atoi(vars["vaultId"])
-
-	if err != nil {
-		log.Fatalf("invalid vault id")
-	}
-
 	collectionId, err := strconv.Atoi(vars["collectionId"])
 
 	if err != nil {
 		log.Fatalf("invalid collection id")
 	}
 
-	videos, err := db.GetVideos(vaultId, collectionId)
+	videos, err := db.GetVideos(collectionId)
 
 	if err != nil {
 		log.Fatalf("error fetching videos from collection %v", collectionId)
@@ -104,14 +98,16 @@ func videosHandler(w http.ResponseWriter, r *http.Request) {
 func videoHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 
-	vaultId, _ := strconv.Atoi(vars["vaultId"])
-	collectionId, _ := strconv.Atoi(vars["collectionId"])
-	videoId, _ := strconv.Atoi(vars["videoId"])
-
-	video, err := db.GetVideo(vaultId, collectionId, videoId)
+	videoId, err := strconv.Atoi(vars["videoId"])
 
 	if err != nil {
-		log.Fatalf("error fetching videos from collection %v", collectionId)
+		log.Fatalf("invalid video id")
+	}
+
+	video, err := db.GetVideo(videoId)
+
+	if err != nil {
+		log.Fatalf("error fetching video %v", videoId)
 	}
 
 	// Respond with the metadata as JSON
@@ -125,7 +121,11 @@ func videoHandler(w http.ResponseWriter, r *http.Request) {
 func actorsHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 
-	vaultId, _ := strconv.Atoi(vars["vaultId"])
+	vaultId, err := strconv.Atoi(vars["vaultId"])
+
+	if err != nil {
+		log.Fatalf("invalid vault id")
+	}
 
 	actors, totalCount, err := db.GetActors()
 
@@ -151,7 +151,11 @@ func actorsHandler(w http.ResponseWriter, r *http.Request) {
 func galleriesHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 
-	vaultId, _ := strconv.Atoi(vars["vaultId"])
+	vaultId, err := strconv.Atoi(vars["vaultId"])
+
+	if err != nil {
+		log.Fatalf("invalid vault id")
+	}
 
 	galleries, err := db.GetGalleries(vaultId)
 
@@ -167,7 +171,11 @@ func galleriesHandler(w http.ResponseWriter, r *http.Request) {
 func galleryHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 
-	galleryId, _ := strconv.Atoi(vars["galleryId"])
+	galleryId, err := strconv.Atoi(vars["galleryId"])
+
+	if err != nil {
+		log.Fatalf("invalid gallery id")
+	}
 
 	gallery, err := db.GetGallery(galleryId)
 

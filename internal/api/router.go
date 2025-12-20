@@ -9,14 +9,18 @@ func NewRouter() *mux.Router {
 	r := mux.NewRouter()
 
 	// Routes
-	r.HandleFunc("/api/vaults", vaultsHandler).Methods("GET")                                  // For vaults
-	r.HandleFunc("/api/vault/{vaultId}", vaultHandler).Methods("GET")                          // For vault
-	r.HandleFunc("/api/collections/{vaultId}", collectionsHandler).Methods("GET")              // For collections
-	r.HandleFunc("/api/galleries/{vaultId}", galleriesHandler).Methods("GET")                  // For galleries
-	r.HandleFunc("/api/gallery/{galleryId}", galleryHandler).Methods("GET")                    // For gallery
-	r.HandleFunc("/api/videos/{vaultId}/{collectionId}", videosHandler).Methods("GET")         // For videos
-	r.HandleFunc("/api/video/{vaultId}/{collectionId}/{videoId}", videoHandler).Methods("GET") // For video
-	r.HandleFunc("/api/actors/{vaultId}", actorsHandler).Methods("GET")                        // For actors
+	r.HandleFunc("/api/vaults", vaultsHandler).Methods("GET")
+	r.HandleFunc("/api/vault/{vaultId}", vaultHandler).Methods("GET")
+
+	r.HandleFunc("/api/collections/{vaultId}", collectionsHandler).Methods("GET")
+
+	r.HandleFunc("/api/videos/{collectionId}", videosHandler).Methods("GET")
+	r.HandleFunc("/api/video/{videoId}", videoHandler).Methods("GET")
+
+	r.HandleFunc("/api/galleries/{vaultId}", galleriesHandler).Methods("GET")
+	r.HandleFunc("/api/gallery/{galleryId}", galleryHandler).Methods("GET")
+
+	r.HandleFunc("/api/actors/{vaultId}", actorsHandler).Methods("GET")
 
 	return r
 }
