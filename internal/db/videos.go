@@ -31,8 +31,8 @@ func CreateVideo(video Video) error {
 	defer tx.Rollback(context.Background())
 
 	query := `
-		INSERT INTO videos (title, slug, studio, collection_id, vault_id)
-		VALUES ($1, $2, $3, $4, $5)
+		INSERT INTO videos (title, slug, studio, collection_id)
+		VALUES ($1, $2, $3, $4)
 		ON CONFLICT (slug) DO UPDATE
 		SET
 			title = EXCLUDED.title,
@@ -49,7 +49,6 @@ func CreateVideo(video Video) error {
 		video.Slug,
 		video.Studio,
 		video.CollectionID,
-		video.VaultID,
 	).Scan(&videoId)
 
 	if err != nil {
@@ -115,13 +114,14 @@ func GetVideos(collectionId int) ([]Video, error) {
 			v.slug,
 			v.studio,
 			c.name AS collection_name,
+			va.id AS vault_id,
 			va.name AS vault_name
 		FROM 
 			videos v
 		JOIN 
 			collections c ON v.collection_id = c.id
 		JOIN 
-			vaults va ON v.vault_id = va.id
+			vaults va ON c.vault_id = va.id
 		WHERE 
 			c.id = $1
 	`
@@ -142,7 +142,7 @@ func GetVideos(collectionId int) ([]Video, error) {
 
 	for rows.Next() {
 		var v Video
-		if err := rows.Scan(&v.ID, &v.Title, &v.Slug, &v.Studio, &v.CollectionName, &v.VaultName); err != nil {
+		if err := rows.Scan(&v.ID, &v.Title, &v.Slug, &v.Studio, &v.CollectionName, &v.VaultID, &v.VaultName); err != nil {
 			log.Fatal("videos scan failed")
 			return nil, err
 		}
@@ -178,7 +178,7 @@ func GetVideo(videoId int) (*Video, error) {
         JOIN 
             collections c ON v.collection_id = c.id
         JOIN 
-            vaults va ON v.vault_id = va.id
+            vaults va ON c.vault_id = va.id
 		LEFT JOIN 
     		video_tags vt ON vt.video_id = v.id
 		LEFT JOIN 

@@ -21,9 +21,7 @@ CREATE TABLE IF NOT EXISTS videos (
     slug           TEXT NOT NULL UNIQUE,
     studio         TEXT,
     collection_id  INTEGER NOT NULL,
-    vault_id       INTEGER NOT NULL,
-    FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE,
-    FOREIGN KEY (vault_id) REFERENCES vaults(id) ON DELETE CASCADE
+    FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE
 );
 
 -- Tags Table

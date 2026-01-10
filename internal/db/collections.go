@@ -6,8 +6,8 @@ import (
 )
 
 type Collection struct {
-	ID        int    `json:"collectionId"`
-	Name      string `json:"collectionName"`
+	ID        int    `json:"id"`
+	Name      string `json:"name"`
 	Path      string `json:"path"`
 	VaultID   int    `json:"vaultId"`
 	VaultName string `json:"vaultName"`

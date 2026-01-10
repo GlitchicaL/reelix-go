@@ -127,16 +127,22 @@ func actorsHandler(w http.ResponseWriter, r *http.Request) {
 		log.Fatalf("invalid vault id")
 	}
 
-	actors, totalCount, err := db.GetActors()
+	vault, err := db.GetVault(vaultId)
+
+	if err != nil {
+		log.Fatalf("error fetching vault %v", vaultId)
+	}
+
+	actors, err := db.GetActors(vaultId)
 
 	type ActorsMetadata struct {
-		Actors     []db.Actor `json:"actors"`
-		TotalCount int        `json:"totalCount"`
+		Actors    []db.Actor `json:"actors"`
+		VaultName string     `json:"vaultName"`
 	}
 
 	data := ActorsMetadata{
-		Actors:     actors,
-		TotalCount: totalCount,
+		Actors:    actors,
+		VaultName: vault.Name,
 	}
 
 	if err != nil {

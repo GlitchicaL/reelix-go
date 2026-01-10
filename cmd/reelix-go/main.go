@@ -42,7 +42,10 @@ func main() {
 
 	defer db.Close()
 
-	scanner.Scan()
+	root := "/videos"
+
+	world, _ := scanner.Scan(root)
+	scanner.Sync(world)
 
 	router := api.NewRouter()
 

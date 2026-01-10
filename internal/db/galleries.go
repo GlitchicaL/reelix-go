@@ -7,7 +7,7 @@ import (
 )
 
 type Gallery struct {
-	ID         int    `json:"galleryId"`
+	ID         int    `json:"id"`
 	Title      string `json:"title"`
 	Slug       string `json:"slug"`
 	ImageCount int    `json:"imageCount"`

@@ -6,8 +6,8 @@ import (
 )
 
 type Vault struct {
-	ID   int    `json:"vaultId"`
-	Name string `json:"vaultName"`
+	ID   int    `json:"id"`
+	Name string `json:"name"`
 }
 
 func CreateVaults(vaults []Vault) ([]Vault, error) {

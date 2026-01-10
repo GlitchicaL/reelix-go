@@ -12,72 +12,118 @@ import (
 	"reelix-go/internal/utils"
 )
 
-func Scan() {
-	root := "/videos"
+type World struct {
+	Vaults []VaultState
+}
+
+type VaultState struct {
+	Vault       db.Vault
+	Collections []CollectionState
+	Galleries   []db.Gallery
+	Actors      []db.Actor
+}
+
+type CollectionState struct {
+	Collection db.Collection
+	Videos     []db.Video
+}
+
+func Scan(root string) (World, error) {
+	world := World{}
 
 	vaults, err := scanVaults(root)
-
 	if err != nil {
-		log.Println("scan vaults error: %w", err)
+		return world, err
 	}
 
-	dbVaults, err := SyncVaults(vaults)
+	for _, vault := range vaults {
+		vaultState := VaultState{Vault: vault}
 
-	if err != nil {
-		log.Println("vault sync error:", err)
+		vaultVideosPath := filepath.Join(root, "Vaults", vault.Name, "Videos")
+		vaultPicturesPath := filepath.Join(root, "Vaults", vault.Name, "Pictures")
+
+		actors, _ := scanActors(vaultPicturesPath)
+		vaultState.Actors = actors
+
+		galleries, _ := scanGalleries(vaultPicturesPath)
+		vaultState.Galleries = galleries
+
+		collections, _ := scanCollections(vaultVideosPath)
+
+		for _, c := range collections {
+			cs := CollectionState{Collection: c}
+
+			collectionPath := filepath.Join(vaultVideosPath, c.Name)
+
+			videos, err := scanVideos(collectionPath)
+			if err != nil {
+				log.Println("video scan error:", err)
+				continue
+			}
+
+			cs.Videos = videos
+			vaultState.Collections = append(vaultState.Collections, cs)
+		}
+
+		world.Vaults = append(world.Vaults, vaultState)
 	}
 
-	for _, v := range dbVaults {
-		vaultPath := filepath.Join(root, "/Vaults", v.Name, "/Videos")
+	return world, nil
+}
 
-		actors, err := scanActors(root, v.Name)
-
+func Sync(world World) error {
+	for _, v := range world.Vaults {
+		dbVaults, err := SyncVaults([]db.Vault{v.Vault})
 		if err != nil {
-			log.Println("actor scan error: %w", err)
+			log.Println("vault sync error:", err)
+			continue
 		}
 
-		if err := SyncActors(actors); err != nil {
-			log.Println("actors sync error:", err)
+		vaultID := dbVaults[0].ID
+
+		if err := SyncActors(v.Actors); err != nil {
+			log.Println("actor sync error:", err)
 		}
 
-		galleryPath := filepath.Join(root, "/Vaults", v.Name, "/Pictures")
-		galleries, err := scanGalleries(galleryPath, v.ID)
-
-		if err != nil {
-			log.Println("scan gallery error: %w", err)
+		for i := range v.Galleries {
+			v.Galleries[i].VaultID = vaultID
 		}
-
-		if err := SyncGalleries(galleries); err != nil {
+		if err := SyncGalleries(v.Galleries); err != nil {
 			log.Println("gallery sync error:", err)
 		}
 
-		collections, err := scanCollections(vaultPath, v.ID)
-
-		if err != nil {
-			log.Println("scan collections error: %w", err)
+		var collectionsToSync []db.Collection
+		for _, c := range v.Collections {
+			c.Collection.VaultID = vaultID
+			collectionsToSync = append(collectionsToSync, c.Collection)
 		}
 
-		dbCollections, err := SyncCollections(collections)
-
+		dbCollections, err := SyncCollections(collectionsToSync)
 		if err != nil {
 			log.Println("collection sync error:", err)
+			continue
 		}
 
+		collIDMap := map[string]int{}
 		for _, c := range dbCollections {
-			collectionPath := filepath.Join(root, "/Vaults", v.Name, "/Videos", c.Name)
+			collIDMap[c.Name] = c.ID
+		}
 
-			videos, err := scanVideos(collectionPath, v.ID, c.ID)
+		for _, c := range v.Collections {
 
-			if err != nil {
-				log.Println("scan videos error: %w", err)
+			collID := collIDMap[c.Collection.Name]
+
+			for i := range c.Videos {
+				c.Videos[i].CollectionID = collID
 			}
 
-			if err := SyncVideos(videos); err != nil {
+			if err := SyncVideos(c.Videos); err != nil {
 				log.Println("video sync error:", err)
 			}
 		}
 	}
 
+	return nil
 }
 
 func scanVaults(rootPath string) ([]db.Vault, error) {
@@ -103,7 +149,7 @@ func scanVaults(rootPath string) ([]db.Vault, error) {
 	return vaults, nil
 }
 
-func scanGalleries(picturePath string, vaultId int) ([]db.Gallery, error) {
+func scanGalleries(picturePath string) ([]db.Gallery, error) {
 	entries, err := os.ReadDir(picturePath)
 
 	if err != nil {
@@ -141,7 +187,6 @@ func scanGalleries(picturePath string, vaultId int) ([]db.Gallery, error) {
 				Title:      utils.SnakeToTitle(galleryName),
 				Slug:       galleryName,
 				ImageCount: galleryImageCount,
-				VaultID:    vaultId,
 			})
 		}
 	}
@@ -149,8 +194,8 @@ func scanGalleries(picturePath string, vaultId int) ([]db.Gallery, error) {
 	return galleries, nil
 }
 
-func scanActors(rootPath string, vaultName string) ([]db.Actor, error) {
-	actorsPath := filepath.Join(rootPath, "/Vaults/", vaultName, "/Pictures/actors/")
+func scanActors(path string) ([]db.Actor, error) {
+	actorsPath := filepath.Join(path, "actors")
 	entries, err := os.ReadDir(actorsPath)
 
 	log.Printf("path %v", actorsPath)
@@ -175,7 +220,7 @@ func scanActors(rootPath string, vaultName string) ([]db.Actor, error) {
 	return actors, nil
 }
 
-func scanCollections(vaultPath string, vaultID int) ([]db.Collection, error) {
+func scanCollections(vaultPath string) ([]db.Collection, error) {
 	entries, err := os.ReadDir(vaultPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read vault: %w", err)
@@ -186,9 +231,8 @@ func scanCollections(vaultPath string, vaultID int) ([]db.Collection, error) {
 	for _, entry := range entries {
 		if entry.IsDir() {
 			collections = append(collections, db.Collection{
-				Name:    entry.Name(),
-				Path:    filepath.Join(vaultPath, entry.Name()),
-				VaultID: vaultID,
+				Name: entry.Name(),
+				Path: filepath.Join(vaultPath, entry.Name()),
 			})
 
 			log.Printf("collections: %v", collections)
@@ -197,7 +241,7 @@ func scanCollections(vaultPath string, vaultID int) ([]db.Collection, error) {
 	return collections, nil
 }
 
-func scanVideos(collectionPath string, vaultID int, collectionID int) ([]db.Video, error) {
+func scanVideos(collectionPath string) ([]db.Video, error) {
 	entries, err := os.ReadDir(collectionPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read collection: %w", err)
@@ -222,13 +266,11 @@ func scanVideos(collectionPath string, vaultID int, collectionID int) ([]db.Vide
 			}
 
 			videos = append(videos, db.Video{
-				Title:        metadata.Title,
-				Slug:         folderName,
-				Studio:       metadata.Studio,
-				Tags:         metadata.Tags,
-				Actors:       metadata.Actors,
-				VaultID:      vaultID,
-				CollectionID: collectionID,
+				Title:  metadata.Title,
+				Slug:   folderName,
+				Studio: metadata.Studio,
+				Tags:   metadata.Tags,
+				Actors: metadata.Actors,
 			})
 		}
 	}

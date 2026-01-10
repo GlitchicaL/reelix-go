@@ -9,7 +9,7 @@ import (
 )
 
 type Actor struct {
-	ID   int    `json:"actorId"`
+	ID   int    `json:"id"`
 	Name string `xml:"name" json:"name"`
 	Slug string `json:"slug"`
 }
@@ -61,34 +61,43 @@ func LinkVideoActor(videoId int, actorId int, tx pgx.Tx) error {
 	return nil
 }
 
-func GetActors() ([]Actor, int, error) {
+func GetActors(vaultId int) ([]Actor, error) {
 	query := `
 		SELECT
-			COUNT(*) OVER () AS total_count, 
-			id, name, slug
-		FROM 
-			actors
+			a.id,
+			a.name,
+			a.slug
+		FROM actors a
+		WHERE EXISTS (
+			SELECT 1
+			FROM video_actors va
+			JOIN videos v ON v.id = va.video_id
+			JOIN collections c ON c.id = v.collection_id
+			WHERE va.actor_id = a.id
+			AND c.vault_id = $1
+		)
+		ORDER BY a.name
 	`
 
 	rows, err := db.Query(
 		context.Background(),
 		query,
+		vaultId,
 	)
 
 	if err != nil {
 		log.Fatal("actors query failed")
-		return nil, 0, err
+		return nil, err
 	}
 	defer rows.Close()
 
 	var actors []Actor
-	var totalCount int
 
 	for rows.Next() {
 		var a Actor
-		if err := rows.Scan(&totalCount, &a.ID, &a.Name, &a.Slug); err != nil {
+		if err := rows.Scan(&a.ID, &a.Name, &a.Slug); err != nil {
 			log.Fatal("actors scan failed")
-			return nil, 0, err
+			return nil, err
 		}
 
 		actors = append(actors, a)
@@ -96,10 +105,10 @@ func GetActors() ([]Actor, int, error) {
 
 	if err := rows.Err(); err != nil {
 		log.Fatal("actors rows failed")
-		return nil, 0, err
+		return nil, err
 	}
 
-	return actors, totalCount, nil
+	return actors, nil
 }
 
 func GetActor(name string) (*int, error) {
