@@ -32,6 +32,7 @@ func Scan(root string) (World, error) {
 	world := World{}
 
 	vaults, err := scanVaults(root)
+
 	if err != nil {
 		return world, err
 	}
@@ -39,8 +40,8 @@ func Scan(root string) (World, error) {
 	for _, vault := range vaults {
 		vaultState := VaultState{Vault: vault}
 
-		vaultVideosPath := filepath.Join(root, "Vaults", vault.Name, "Videos")
-		vaultPicturesPath := filepath.Join(root, "Vaults", vault.Name, "Pictures")
+		vaultVideosPath := filepath.Join(root, "vaults", vault.Name, "videos")
+		vaultPicturesPath := filepath.Join(root, "vaults", vault.Name, "pictures")
 
 		actors, _ := scanActors(vaultPicturesPath)
 		vaultState.Actors = actors
@@ -53,7 +54,7 @@ func Scan(root string) (World, error) {
 		for _, c := range collections {
 			cs := CollectionState{Collection: c}
 
-			collectionPath := filepath.Join(vaultVideosPath, c.Name)
+			collectionPath := filepath.Join(vaultVideosPath, c.Slug)
 
 			videos, err := scanVideos(collectionPath)
 			if err != nil {
@@ -127,7 +128,7 @@ func Sync(world World) error {
 }
 
 func scanVaults(rootPath string) ([]db.Vault, error) {
-	vaultsPath := filepath.Join(rootPath, "/Vaults")
+	vaultsPath := filepath.Join(rootPath, "/vaults")
 	entries, err := os.ReadDir(vaultsPath)
 
 	if err != nil {
@@ -230,9 +231,12 @@ func scanCollections(vaultPath string) ([]db.Collection, error) {
 
 	for _, entry := range entries {
 		if entry.IsDir() {
+			name := entry.Name()
+
 			collections = append(collections, db.Collection{
-				Name: entry.Name(),
-				Path: filepath.Join(vaultPath, entry.Name()),
+				Name: utils.SnakeToTitle(entry.Name()),
+				Slug: name,
+				Path: filepath.Join(vaultPath, name),
 			})
 
 			log.Printf("collections: %v", collections)

@@ -42,7 +42,7 @@ func main() {
 
 	defer db.Close()
 
-	root := "/videos"
+	root := "/reelix"
 
 	world, _ := scanner.Scan(root)
 	scanner.Sync(world)

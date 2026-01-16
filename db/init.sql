@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS vaults (
 CREATE TABLE IF NOT EXISTS collections (
     id         SERIAL PRIMARY KEY,
     name       TEXT NOT NULL,
+    slug       TEXT NOT NULL,
     path       TEXT,
     vault_id   INTEGER NOT NULL,
     FOREIGN KEY (vault_id) REFERENCES vaults(id) ON DELETE CASCADE,

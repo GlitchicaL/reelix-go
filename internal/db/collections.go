@@ -8,6 +8,7 @@ import (
 type Collection struct {
 	ID        int    `json:"id"`
 	Name      string `json:"name"`
+	Slug      string `json:"slug"`
 	Path      string `json:"path"`
 	VaultID   int    `json:"vaultId"`
 	VaultName string `json:"vaultName"`
@@ -15,33 +16,37 @@ type Collection struct {
 
 func CreateCollections(collections []Collection) ([]Collection, error) {
 	names := make([]string, len(collections))
+	slugs := make([]string, len(collections))
 	paths := make([]string, len(collections))
 	vaultIds := make([]int, len(collections))
 
 	for i, c := range collections {
 		names[i] = c.Name
+		slugs[i] = c.Slug
 		paths[i] = c.Path
 		vaultIds[i] = c.VaultID
 	}
 
 	query := `
-		INSERT INTO collections (name, path, vault_id)
+		INSERT INTO collections (name, slug, path, vault_id)
 		SELECT *
 		FROM UNNEST(
 			$1::text[],
 			$2::text[],
-			$3::int[]
+			$3::text[],
+			$4::int[]
 		)
 		ON CONFLICT (name, vault_id) 
 		DO UPDATE SET
 			path = EXCLUDED.path
-		RETURNING id, name, path, vault_id
+		RETURNING id, name, slug, path, vault_id
 	`
 
 	rows, err := db.Query(
 		context.Background(),
 		query,
 		names,
+		slugs,
 		paths,
 		vaultIds,
 	)
@@ -57,7 +62,7 @@ func CreateCollections(collections []Collection) ([]Collection, error) {
 	for rows.Next() {
 		var c Collection
 
-		if err := rows.Scan(&c.ID, &c.Name, &c.Path, &c.VaultID); err != nil {
+		if err := rows.Scan(&c.ID, &c.Name, &c.Slug, &c.Path, &c.VaultID); err != nil {
 			return nil, err
 		}
 

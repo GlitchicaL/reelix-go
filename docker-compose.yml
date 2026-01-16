@@ -5,7 +5,7 @@ services:
     ports:
       - "8080:80"
     volumes:
-      - /mnt/c/Users/justi/Videos/reelix:/videos:ro
+      - ${ROOT_PATH}:/reelix:ro
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     restart: unless-stopped
 
@@ -39,7 +39,7 @@ services:
       - DB_USER=${POSTGRES_USER}
       - DB_PASSWORD=${POSTGRES_PASSWORD}
     volumes:
-      - /mnt/c/Users/justi/Videos/reelix:/videos:ro
+      - ${ROOT_PATH}:/reelix:ro
     restart: unless-stopped
 
 volumes:
