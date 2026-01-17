@@ -11,6 +11,23 @@ import (
 	"github.com/gorilla/mux"
 )
 
+type StatusMetadata struct {
+	Status string `json:"status"`
+}
+
+func statusHandler(w http.ResponseWriter, r *http.Request) {
+	data := StatusMetadata{
+		Status: "OK",
+	}
+
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Content-Type", "application/json")
+
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		http.Error(w, "Unable to encode metadata", http.StatusInternalServerError)
+	}
+}
+
 func vaultsHandler(w http.ResponseWriter, r *http.Request) {
 	vaults, err := db.GetVaults()
 

@@ -4,11 +4,11 @@ import (
 	"github.com/gorilla/mux"
 )
 
-// NewRouter sets up the API routes and returns a configured router
 func NewRouter() *mux.Router {
 	r := mux.NewRouter()
 
-	// Routes
+	r.HandleFunc("/api/status", statusHandler).Methods("GET")
+
 	r.HandleFunc("/api/vaults", vaultsHandler).Methods("GET")
 	r.HandleFunc("/api/vault/{vaultId}", vaultHandler).Methods("GET")
 
