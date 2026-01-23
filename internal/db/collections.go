@@ -15,6 +15,10 @@ type Collection struct {
 }
 
 func CreateCollections(collections []Collection) ([]Collection, error) {
+	// We use make() here because at this point we know the size of
+	// the slices and we won't need to reallocate memory if we were
+	// to just loop and append.
+
 	names := make([]string, len(collections))
 	slugs := make([]string, len(collections))
 	paths := make([]string, len(collections))
@@ -57,7 +61,12 @@ func CreateCollections(collections []Collection) ([]Collection, error) {
 
 	defer rows.Close()
 
-	var dbCollections []Collection
+	// Since we know the original size of the slice prior
+	// to inserting, we know the max capacity of rows returned.
+	// We don't specify length as a row conflict will result in
+	// an update and not an insert.
+
+	dbCollections := make([]Collection, 0, len(collections))
 
 	for rows.Next() {
 		var c Collection

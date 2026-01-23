@@ -16,6 +16,10 @@ type Gallery struct {
 }
 
 func CreateGallery(galleries []Gallery) ([]Gallery, error) {
+	// We use make() here because at this point we know the size of
+	// the slices and we won't need to reallocate memory if we were
+	// to just loop and append.
+
 	titles := make([]string, len(galleries))
 	slugs := make([]string, len(galleries))
 	imageCounts := make([]int, len(galleries))
@@ -61,7 +65,12 @@ func CreateGallery(galleries []Gallery) ([]Gallery, error) {
 
 	defer rows.Close()
 
-	var dbGalleries []Gallery
+	// Since we know the original size of the slice prior
+	// to inserting, we know the max capacity of rows returned.
+	// We don't specify length as a row conflict will result in
+	// an update and not an insert.
+
+	dbGalleries := make([]Gallery, 0, len(galleries))
 
 	for rows.Next() {
 		var g Gallery

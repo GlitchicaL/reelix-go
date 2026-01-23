@@ -14,6 +14,7 @@ func CreateVaults(vaults []Vault) ([]Vault, error) {
 	// We use make() here because at this point we know the size of
 	// the vault and we won't need to reallocate memory if we were
 	// to just loop and append.
+
 	names := make([]string, len(vaults))
 
 	for i, v := range vaults {
@@ -40,7 +41,12 @@ func CreateVaults(vaults []Vault) ([]Vault, error) {
 
 	defer rows.Close()
 
-	var dbVaults []Vault
+	// Since we know the original size of the slice prior
+	// to inserting, we know the max capacity of rows returned.
+	// We don't specify length as a row conflict will result in
+	// an update and not an insert.
+
+	dbVaults := make([]Vault, 0, len(vaults))
 
 	for rows.Next() {
 		var v Vault

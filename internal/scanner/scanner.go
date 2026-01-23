@@ -72,63 +72,8 @@ func Scan(root string) (World, error) {
 	return world, nil
 }
 
-func Sync(world World) error {
-	for _, v := range world.Vaults {
-		dbVaults, err := SyncVaults([]db.Vault{v.Vault})
-		if err != nil {
-			log.Println("vault sync error:", err)
-			continue
-		}
-
-		vaultID := dbVaults[0].ID
-
-		if err := SyncActors(v.Actors); err != nil {
-			log.Println("actor sync error:", err)
-		}
-
-		for i := range v.Galleries {
-			v.Galleries[i].VaultID = vaultID
-		}
-		if err := SyncGalleries(v.Galleries); err != nil {
-			log.Println("gallery sync error:", err)
-		}
-
-		var collectionsToSync []db.Collection
-		for _, c := range v.Collections {
-			c.Collection.VaultID = vaultID
-			collectionsToSync = append(collectionsToSync, c.Collection)
-		}
-
-		dbCollections, err := SyncCollections(collectionsToSync)
-		if err != nil {
-			log.Println("collection sync error:", err)
-			continue
-		}
-
-		collIDMap := map[string]int{}
-		for _, c := range dbCollections {
-			collIDMap[c.Name] = c.ID
-		}
-
-		for _, c := range v.Collections {
-
-			collID := collIDMap[c.Collection.Name]
-
-			for i := range c.Videos {
-				c.Videos[i].CollectionID = collID
-			}
-
-			if err := SyncVideos(c.Videos); err != nil {
-				log.Println("video sync error:", err)
-			}
-		}
-	}
-
-	return nil
-}
-
 func scanVaults(rootPath string) ([]db.Vault, error) {
-	vaultsPath := filepath.Join(rootPath, "/vaults")
+	vaultsPath := filepath.Join(rootPath, "vaults")
 	entries, err := os.ReadDir(vaultsPath)
 
 	if err != nil {
@@ -258,12 +203,10 @@ func scanVideos(collectionPath string) ([]db.Video, error) {
 			folderName := entry.Name()
 			nfoPath := filepath.Join(collectionPath, folderName, folderName+".nfo")
 
-			// Check if .nfo file exists
 			if _, err := os.Stat(nfoPath); err != nil {
 				return nil, fmt.Errorf("missing .nfo file for folder %v", folderName)
 			}
 
-			// Parse .nfo file
 			metadata, err := parseNfoFile(nfoPath)
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse .nfo for %v: %w", folderName, err)
