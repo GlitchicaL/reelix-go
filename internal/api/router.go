@@ -22,5 +22,8 @@ func NewRouter() *mux.Router {
 
 	r.HandleFunc("/api/actors/{vaultId}", actorsHandler).Methods("GET")
 
+	r.HandleFunc("/api/register", registerHandler).Methods("POST")
+	r.HandleFunc("/api/login", loginHandler).Methods("POST")
+
 	return r
 }

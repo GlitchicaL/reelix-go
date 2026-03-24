@@ -5,10 +5,13 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"reelix-go/internal/db"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/mux"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type StatusMetadata struct {
@@ -209,4 +212,113 @@ func galleryHandler(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(gallery); err != nil {
 		http.Error(w, "Unable to encode metadata", http.StatusInternalServerError)
 	}
+}
+
+func registerHandler(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	if input.Username == "" || input.Password == "" {
+		http.Error(w, "Username and password are required", http.StatusBadRequest)
+		return
+	}
+
+	_, err := db.GetUser(input.Username)
+
+	if err == nil {
+		http.Error(w, "Username already in use", http.StatusConflict)
+		return
+	}
+
+	count, err := db.GetUserCount()
+
+	if err != nil {
+		http.Error(w, "Error fetching user count", http.StatusInternalServerError)
+		return
+	}
+
+	var isAdmin = false
+
+	// Our first registered user will be admin by default
+	if count == 0 {
+		isAdmin = true
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.Password), 14)
+
+	if err != nil {
+		http.Error(w, "Error hashing password", http.StatusInternalServerError)
+		return
+	}
+
+	_, err = db.CreateUser(input.Username, string(hashedPassword), isAdmin)
+
+	if err != nil {
+		http.Error(w, "Error saving user", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"message": "User created successfully"})
+}
+
+func loginHandler(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	if input.Username == "" || input.Password == "" {
+		http.Error(w, "Username and password are required", http.StatusBadRequest)
+		return
+	}
+
+	user, err := db.GetUser(input.Username)
+
+	if err != nil {
+		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+		return
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.Password)); err != nil {
+		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+		return
+	}
+
+	token, err := generateJWT(user.Username, user.IsAdmin)
+	if err != nil {
+		http.Error(w, "Error generating token", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"token":    token,
+		"user":     user.Username,
+		"is_admin": user.IsAdmin,
+	})
+}
+
+func generateJWT(username string, isAdmin bool) (string, error) {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"username": username,
+		"is_admin": isAdmin,
+		"exp":      time.Now().Add(24 * time.Hour).Unix(),
+	})
+
+	jwt, _ := token.SignedString([]byte("your-secret-jwt-key"))
+
+	return jwt, nil
 }

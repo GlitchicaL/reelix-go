@@ -40,7 +40,7 @@ func Scan(root string) (World, error) {
 	for _, vault := range vaults {
 		vaultState := VaultState{Vault: vault}
 
-		vaultVideosPath := filepath.Join(root, "vaults", vault.Name, "videos")
+		vaultCollectionsPath := filepath.Join(root, "vaults", vault.Name, "collections")
 		vaultPicturesPath := filepath.Join(root, "vaults", vault.Name, "pictures")
 
 		actors, _ := scanActors(vaultPicturesPath)
@@ -49,12 +49,12 @@ func Scan(root string) (World, error) {
 		galleries, _ := scanGalleries(vaultPicturesPath)
 		vaultState.Galleries = galleries
 
-		collections, _ := scanCollections(vaultVideosPath)
+		collections, _ := scanCollections(vaultCollectionsPath)
 
 		for _, c := range collections {
 			cs := CollectionState{Collection: c}
 
-			collectionPath := filepath.Join(vaultVideosPath, c.Slug)
+			collectionPath := filepath.Join(vaultCollectionsPath, c.Slug)
 
 			videos, err := scanVideos(collectionPath)
 			if err != nil {
