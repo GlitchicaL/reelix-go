@@ -71,6 +71,8 @@ CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     username VARCHAR(255) UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
+    refresh_token_hash TEXT,
+    refresh_token_expiry_date TIMESTAMP,
     is_admin BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT NOW()
 );
