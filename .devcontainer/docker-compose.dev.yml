@@ -1,0 +1,14 @@
+services:
+  api:
+    volumes:
+      - ..:/workspace:cached
+    working_dir: /workspace
+    command: sleep infinity
+
+  nginx:
+    volumes:
+      - ${ROOT_PATH}:/reelix:rw
+
+  database:
+    ports:
+      - "5432:5432"

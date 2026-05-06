@@ -1,0 +1,21 @@
+{
+    "name": "Reelix Dev Container",
+    "dockerComposeFile": [
+        "../docker-compose.yml",
+        "docker-compose.dev.yml"
+    ],
+    "service": "api",
+    "workspaceFolder": "/workspace",
+    "features": {
+        "ghcr.io/stu-bell/devcontainer-features/open-code:0": {}
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-azuretools.vscode-containers",
+                "golang.go"
+            ]
+        }
+    },
+    "shutdownAction": "stopCompose"
+}
