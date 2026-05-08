@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-
-	"reelix-go/internal/utils"
 )
 
 type Video struct {
@@ -19,6 +17,73 @@ type Video struct {
 	CollectionName string   `json:"collectionName"`
 	VaultID        int      `json:"vaultId"`
 	VaultName      string   `json:"vaultName"`
+}
+
+func CreateVideos(videos []Video) ([]Video, error) {
+	// We use make() here because at this point we know the size of
+	// the slices and we won't need to reallocate memory if we were
+	// to just loop and append.
+	titles := make([]string, len(videos))
+	slugs := make([]string, len(videos))
+	studios := make([]string, len(videos))
+	collectionIds := make([]int, len(videos))
+
+	for i, v := range videos {
+		titles[i] = v.Title
+		slugs[i] = v.Slug
+		studios[i] = v.Studio
+		collectionIds[i] = v.CollectionID
+	}
+
+	query := `
+		INSERT INTO videos (title, slug, studio, collection_id)
+		SELECT *
+		FROM UNNEST(
+			$1::text[],
+			$2::text[],
+			$3::text[],
+			$4::int[]
+		)
+		ON CONFLICT (slug) DO UPDATE 
+		SET
+			title = EXCLUDED.title,
+			studio = EXCLUDED.studio
+		RETURNING id, title, slug, studio, collection_id
+	`
+
+	rows, err := db.Query(
+		context.Background(),
+		query,
+		titles,
+		slugs,
+		studios,
+		collectionIds,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	// Since we know the original size of the slice prior
+	// to inserting, we know the max capacity of rows returned.
+	// We don't specify length as a row conflict will result in
+	// an update and not an insert.
+
+	dbVideos := make([]Video, 0, len(videos))
+
+	for rows.Next() {
+		var v Video
+
+		if err := rows.Scan(&v.ID, &v.Title, &v.Slug, &v.Studio, &v.CollectionID); err != nil {
+			return nil, err
+		}
+
+		dbVideos = append(dbVideos, v)
+	}
+
+	return dbVideos, nil
 }
 
 func CreateVideo(video Video) error {
@@ -54,54 +119,6 @@ func CreateVideo(video Video) error {
 	if err != nil {
 		return fmt.Errorf("db insert error: %w", err)
 	}
-
-	log.Printf("tags: %v (video: %v)", video.Tags, video.Title)
-
-	for _, tag := range video.Tags {
-		tagId, err := CreateTag(tag, tx)
-
-		if err != nil {
-			return fmt.Errorf("failed to create tag %v: %w", tag, err)
-		}
-
-		err = LinkVideoTag(videoId, *tagId, tx)
-
-		if err != nil {
-			return fmt.Errorf("failed to link tag %v to video %v: %w", tag, videoId, err)
-		}
-	}
-
-	for _, actor := range video.Actors {
-		var actorId *int
-		var err error
-
-		actorId, err = GetActor(actor.Name)
-
-		if err != nil {
-			newActor := Actor{
-				Name: actor.Name,
-				Slug: utils.TitleToSnake(actor.Name),
-			}
-
-			actorId, err = CreateActor(newActor)
-
-			if err != nil {
-				return fmt.Errorf("failed to create actor %v: %w", actor.Name, err)
-			}
-		}
-
-		err = LinkVideoActor(videoId, *actorId, tx)
-
-		if err != nil {
-			return fmt.Errorf("failed to link actor %v to video %v: %w", actor.Name, videoId, err)
-		}
-	}
-
-	if err := tx.Commit(context.Background()); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
-	log.Printf("video added: %v (collection: %v)", video.Title, video.CollectionID)
 
 	return nil
 }

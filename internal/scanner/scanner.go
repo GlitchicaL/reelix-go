@@ -21,11 +21,16 @@ type VaultState struct {
 	Collections []CollectionState
 	Galleries   []db.Gallery
 	Actors      []db.Actor
+	Tags        []db.Tag
 }
 
 type CollectionState struct {
 	Collection db.Collection
 	Videos     []db.Video
+
+	// Needs research:
+	// This should give us O(1) lookups while preserving order in the above slice.
+	VideoSlugToID map[string]int
 }
 
 func Scan(root string) (World, error) {
@@ -36,6 +41,8 @@ func Scan(root string) (World, error) {
 	if err != nil {
 		return world, err
 	}
+
+	tagsSeen := make(map[string]struct{})
 
 	for _, vault := range vaults {
 		vaultState := VaultState{Vault: vault}
@@ -56,13 +63,21 @@ func Scan(root string) (World, error) {
 
 			collectionPath := filepath.Join(vaultCollectionsPath, c.Slug)
 
-			videos, err := scanVideos(collectionPath)
+			videos, tags, err := scanVideos(collectionPath)
 			if err != nil {
 				log.Println("video scan error:", err)
 				continue
 			}
 
 			cs.Videos = videos
+
+			for _, tag := range tags {
+				if _, exists := tagsSeen[tag]; !exists {
+					tagsSeen[tag] = struct{}{}
+					vaultState.Tags = append(vaultState.Tags, db.Tag{Name: tag})
+				}
+			}
+
 			vaultState.Collections = append(vaultState.Collections, cs)
 		}
 
@@ -87,10 +102,10 @@ func scanVaults(rootPath string) ([]db.Vault, error) {
 			vaults = append(vaults, db.Vault{
 				Name: entry.Name(),
 			})
-
-			log.Printf("vaults: %v", vaults)
 		}
 	}
+
+	log.Printf("vaults scanned: %v", len(vaults))
 
 	return vaults, nil
 }
@@ -137,14 +152,14 @@ func scanGalleries(picturePath string) ([]db.Gallery, error) {
 		}
 	}
 
+	log.Printf("galleries scanned: %v", len(galleries))
+
 	return galleries, nil
 }
 
 func scanActors(path string) ([]db.Actor, error) {
 	actorsPath := filepath.Join(path, "actors")
 	entries, err := os.ReadDir(actorsPath)
-
-	log.Printf("path %v", actorsPath)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to read actors: %w", err)
@@ -155,13 +170,13 @@ func scanActors(path string) ([]db.Actor, error) {
 	for _, entry := range entries {
 		actor := strings.TrimSuffix(entry.Name(), ".jpg")
 
-		log.Printf("scanned actor: %v", actor)
-
 		actors = append(actors, db.Actor{
 			Name: utils.SnakeToTitle(actor),
 			Slug: actor,
 		})
 	}
+
+	log.Printf("actors scanned: %v", len(actors))
 
 	return actors, nil
 }
@@ -183,20 +198,22 @@ func scanCollections(vaultPath string) ([]db.Collection, error) {
 				Slug: name,
 				Path: filepath.Join(vaultPath, name),
 			})
-
-			log.Printf("collections: %v", collections)
 		}
 	}
+
+	log.Printf("collections scanned: %v", len(collections))
+
 	return collections, nil
 }
 
-func scanVideos(collectionPath string) ([]db.Video, error) {
+func scanVideos(collectionPath string) ([]db.Video, []string, error) {
 	entries, err := os.ReadDir(collectionPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read collection: %w", err)
+		return nil, nil, fmt.Errorf("failed to read collection: %w", err)
 	}
 
 	var videos []db.Video
+	var tags []string
 
 	for _, entry := range entries {
 		if entry.IsDir() {
@@ -204,12 +221,12 @@ func scanVideos(collectionPath string) ([]db.Video, error) {
 			nfoPath := filepath.Join(collectionPath, folderName, folderName+".nfo")
 
 			if _, err := os.Stat(nfoPath); err != nil {
-				return nil, fmt.Errorf("missing .nfo file for folder %v", folderName)
+				return nil, nil, fmt.Errorf("missing .nfo file for folder %v", folderName)
 			}
 
 			metadata, err := parseNfoFile(nfoPath)
 			if err != nil {
-				return nil, fmt.Errorf("failed to parse .nfo for %v: %w", folderName, err)
+				return nil, nil, fmt.Errorf("failed to parse .nfo for %v: %w", folderName, err)
 			}
 
 			videos = append(videos, db.Video{
@@ -219,10 +236,17 @@ func scanVideos(collectionPath string) ([]db.Video, error) {
 				Tags:   metadata.Tags,
 				Actors: metadata.Actors,
 			})
+
+			for _, tag := range metadata.Tags {
+				tags = append(tags, tag)
+			}
 		}
 	}
 
-	return videos, nil
+	log.Printf("videos scanned: %v", len(videos))
+	log.Printf("tags scanned: %v", len(tags))
+
+	return videos, tags, nil
 }
 
 type VideoMetadata struct {
