@@ -3,83 +3,94 @@ package scanner
 import (
 	"fmt"
 	"log"
+	"sync"
 
 	"reelix-go/internal/db"
 )
 
 func Sync(world World) error {
-	for _, v := range world.Vaults {
-		dbVaults, err := SyncVaults([]db.Vault{v.Vault})
+	var wg sync.WaitGroup
 
-		if err != nil {
-			log.Println("vault sync error:", err)
-			continue
-		}
+	sem := make(chan struct{}, 2)
 
-		vaultID := dbVaults[0].ID
+	for _, vault := range world.Vaults {
+		wg.Add(1)
 
-		_, err = SyncActors(v.Actors)
+		go func(v VaultState) {
+			defer wg.Done()
 
-		if err != nil {
-			log.Println("actor sync error:", err)
-		}
+			sem <- struct{}{}
+			defer func() {
+				<-sem
+			}()
 
-		_, err = SyncTags(v.Tags)
-
-		if err != nil {
-			log.Println("tags sync error:", err)
-		}
-
-		for i := range v.Galleries {
-			v.Galleries[i].VaultID = vaultID
-		}
-
-		if _, err := SyncGalleries(v.Galleries); err != nil {
-			log.Println("gallery sync error:", err)
-		}
-
-		var collectionsToSync []db.Collection
-		for _, c := range v.Collections {
-			c.Collection.VaultID = vaultID
-			collectionsToSync = append(collectionsToSync, c.Collection)
-		}
-
-		dbCollections, err := SyncCollections(collectionsToSync)
-		if err != nil {
-			log.Println("collection sync error:", err)
-			continue
-		}
-
-		// Since the name of a collection is unique we can
-		// map the name to its ID
-
-		collectionMap := map[string]int{}
-
-		for _, c := range dbCollections {
-			collectionMap[c.Name] = c.ID
-		}
-
-		for _, c := range v.Collections {
-			collectionID := collectionMap[c.Collection.Name]
-
-			for i := range c.Videos {
-				c.Videos[i].CollectionID = collectionID
-			}
-
-			_, err := SyncVideos(c.Videos)
+			dbVaults, err := SyncVaults([]db.Vault{v.Vault})
 
 			if err != nil {
-				log.Println("video sync error:", err)
+				log.Println("vault sync error:", err)
+				return
 			}
 
-			if err := SyncVideoTags(c.Videos, v.Tags); err != nil {
-				log.Println("video tag sync error:", err)
+			vaultID := dbVaults[0].ID
+
+			if _, err = SyncActors(v.Actors); err != nil {
+				log.Println("actor sync error:", err)
 			}
 
-			if err := SyncVideoActors(c.Videos, v.Actors); err != nil {
-				log.Println("video tag sync error:", err)
+			if _, err = SyncTags(v.Tags); err != nil {
+				log.Println("tags sync error:", err)
 			}
-		}
+
+			for i := range v.Galleries {
+				v.Galleries[i].VaultID = vaultID
+			}
+
+			if _, err := SyncGalleries(v.Galleries); err != nil {
+				log.Println("gallery sync error:", err)
+			}
+
+			var collectionsToSync []db.Collection
+			for _, c := range v.Collections {
+				c.Collection.VaultID = vaultID
+				collectionsToSync = append(collectionsToSync, c.Collection)
+			}
+
+			dbCollections, err := SyncCollections(collectionsToSync)
+			if err != nil {
+				log.Println("collection sync error:", err)
+				return
+			}
+
+			// Since the name of a collection is unique we can
+			// map the name to its ID
+
+			collectionMap := map[string]int{}
+
+			for _, c := range dbCollections {
+				collectionMap[c.Name] = c.ID
+			}
+
+			for _, c := range v.Collections {
+				collectionID := collectionMap[c.Collection.Name]
+
+				for i := range c.Videos {
+					c.Videos[i].CollectionID = collectionID
+				}
+
+				if _, err := SyncVideos(c.Videos); err != nil {
+					log.Println("video sync error:", err)
+				}
+
+				if err := SyncVideoTags(c.Videos, v.Tags); err != nil {
+					log.Println("video tag sync error:", err)
+				}
+
+				if err := SyncVideoActors(c.Videos, v.Actors); err != nil {
+					log.Println("video tag sync error:", err)
+				}
+			}
+
+		}(vault)
 	}
 
 	return nil

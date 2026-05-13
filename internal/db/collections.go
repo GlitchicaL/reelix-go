@@ -111,11 +111,10 @@ func GetCollections(vaultId int) ([]Collection, error) {
 
 	for rows.Next() {
 		var c Collection
+
 		if err := rows.Scan(&c.ID, &c.Name, &c.VaultName); err != nil {
 			return nil, err
 		}
-
-		log.Printf("collection: %v", c)
 
 		collections = append(collections, c)
 	}

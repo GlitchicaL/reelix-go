@@ -44,8 +44,41 @@ func main() {
 
 	root := "/reelix"
 
-	world, _ := scanner.Scan(root)
-	scanner.Sync(world)
+	go func() {
+		scan := func() {
+			world, err := scanner.Scan(root)
+
+			if err != nil {
+				log.Println("error during scanning:", err)
+				return
+			}
+
+			/*
+				TODO: Compare the world state with a
+				previous world state to determine if
+				a sync is needed. Maybe also consider
+				a way to only sync new changes.
+			*/
+
+			if err = scanner.Sync(world); err != nil {
+				log.Println("error during syncing:", err)
+			}
+		}
+
+		/*
+			We'll need to run an initial scan followed
+			by a scan every 15 minutes
+		*/
+
+		scan()
+
+		ticker := time.NewTicker(15 * time.Minute)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			scan()
+		}
+	}()
 
 	router := api.NewRouter()
 

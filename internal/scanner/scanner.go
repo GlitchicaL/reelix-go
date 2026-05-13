@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"reelix-go/internal/db"
 	"reelix-go/internal/utils"
@@ -42,47 +43,75 @@ func Scan(root string) (World, error) {
 		return world, err
 	}
 
-	tagsSeen := make(map[string]struct{})
+	var (
+		wg sync.WaitGroup
+		mu sync.Mutex
+	)
+
+	sem := make(chan struct{}, 2)
 
 	for _, vault := range vaults {
-		vaultState := VaultState{Vault: vault}
+		sem <- struct{}{}
+		wg.Add(1)
 
-		vaultCollectionsPath := filepath.Join(root, "vaults", vault.Name, "collections")
-		vaultPicturesPath := filepath.Join(root, "vaults", vault.Name, "pictures")
+		go func(v db.Vault) {
+			defer wg.Done()
+			defer func() { <-sem }()
 
-		actors, _ := scanActors(vaultPicturesPath)
-		vaultState.Actors = actors
+			vaultState := VaultState{Vault: v}
 
-		galleries, _ := scanGalleries(vaultPicturesPath)
-		vaultState.Galleries = galleries
+			vaultCollectionsPath := filepath.Join(root, "vaults", v.Name, "collections")
+			vaultPicturesPath := filepath.Join(root, "vaults", v.Name, "pictures")
 
-		collections, _ := scanCollections(vaultCollectionsPath)
+			actors, _ := scanActors(vaultPicturesPath)
+			vaultState.Actors = actors
 
-		for _, c := range collections {
-			cs := CollectionState{Collection: c}
+			galleries, _ := scanGalleries(vaultPicturesPath)
+			vaultState.Galleries = galleries
 
-			collectionPath := filepath.Join(vaultCollectionsPath, c.Slug)
+			collections, _ := scanCollections(vaultCollectionsPath)
 
-			videos, tags, err := scanVideos(collectionPath)
-			if err != nil {
-				log.Println("video scan error:", err)
-				continue
-			}
+			tagsSeen := make(map[string]struct{})
 
-			cs.Videos = videos
+			for _, c := range collections {
+				cs := CollectionState{Collection: c}
 
-			for _, tag := range tags {
-				if _, exists := tagsSeen[tag]; !exists {
-					tagsSeen[tag] = struct{}{}
-					vaultState.Tags = append(vaultState.Tags, db.Tag{Name: tag})
+				collectionPath := filepath.Join(vaultCollectionsPath, c.Slug)
+
+				videos, tags, err := scanVideos(collectionPath)
+				if err != nil {
+					log.Println("video scan error:", err)
+					continue
 				}
+
+				cs.Videos = videos
+
+				for _, tag := range tags {
+					if _, exists := tagsSeen[tag]; !exists {
+						tagsSeen[tag] = struct{}{}
+						vaultState.Tags = append(vaultState.Tags, db.Tag{Name: tag})
+					}
+				}
+
+				vaultState.Collections = append(vaultState.Collections, cs)
 			}
 
-			vaultState.Collections = append(vaultState.Collections, cs)
-		}
+			mu.Lock()
 
-		world.Vaults = append(world.Vaults, vaultState)
+			/*
+				Since multiple goroutines will append to the
+				world state, we lock to avoid race conditions
+			*/
+
+			world.Vaults = append(world.Vaults, vaultState)
+
+			mu.Unlock()
+
+			log.Printf("%v added to world state", v.Name)
+		}(vault)
 	}
+
+	wg.Wait()
 
 	return world, nil
 }
