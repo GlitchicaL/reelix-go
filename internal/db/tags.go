@@ -42,7 +42,7 @@ func CreateTags(tags []Tag) ([]Tag, error) {
 	)
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("creating tags: %w", err)
 	}
 
 	defer rows.Close()
@@ -58,7 +58,7 @@ func CreateTags(tags []Tag) ([]Tag, error) {
 		var t Tag
 
 		if err := rows.Scan(&t.ID, &t.Name); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("creating tags: %w", err)
 		}
 
 		dbTags = append(dbTags, t)
@@ -107,7 +107,7 @@ func LinkVideoTag(videoId int, tagId int, tx pgx.Tx) error {
 	)
 
 	if err != nil {
-		return fmt.Errorf("failed to link tag %v to video: %w", tagId, err)
+		return fmt.Errorf("linking tag %d to video: %w", tagId, err)
 	}
 
 	return nil
@@ -176,7 +176,7 @@ func LinkVideoTags(videos []Video, tags []Tag) error {
 	)
 
 	if err != nil {
-		return err
+		return fmt.Errorf("linking video tags: %w", err)
 	}
 
 	defer rows.Close()

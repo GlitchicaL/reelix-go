@@ -209,8 +209,7 @@ func GetActors(vaultId int) ([]Actor, error) {
 	)
 
 	if err != nil {
-		log.Fatal("actors query failed")
-		return nil, err
+		return nil, fmt.Errorf("fetching actors: %w", err)
 	}
 	defer rows.Close()
 
@@ -219,16 +218,14 @@ func GetActors(vaultId int) ([]Actor, error) {
 	for rows.Next() {
 		var a Actor
 		if err := rows.Scan(&a.ID, &a.Name, &a.Slug); err != nil {
-			log.Fatal("actors scan failed")
-			return nil, err
+			return nil, fmt.Errorf("fetching actors: %w", err)
 		}
 
 		actors = append(actors, a)
 	}
 
 	if err := rows.Err(); err != nil {
-		log.Fatal("actors rows failed")
-		return nil, err
+		return nil, fmt.Errorf("fetching actors: %w", err)
 	}
 
 	return actors, nil
@@ -254,7 +251,7 @@ func GetActor(name string) (*int, error) {
 	).Scan(&a.ID)
 
 	if err != nil {
-		return nil, fmt.Errorf("error fetching actor: %v", err)
+		return nil, fmt.Errorf("fetching actor: %w", err)
 	}
 
 	return &a.ID, nil

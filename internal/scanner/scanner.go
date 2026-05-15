@@ -63,13 +63,27 @@ func Scan(root string) (World, error) {
 			vaultCollectionsPath := filepath.Join(root, "vaults", v.Name, "collections")
 			vaultPicturesPath := filepath.Join(root, "vaults", v.Name, "pictures")
 
-			actors, _ := scanActors(vaultPicturesPath)
+			actors, err := scanActors(vaultPicturesPath)
+
+			if err != nil {
+				log.Println(err)
+			}
+
 			vaultState.Actors = actors
 
-			galleries, _ := scanGalleries(vaultPicturesPath)
+			galleries, err := scanGalleries(vaultPicturesPath)
+
+			if err != nil {
+				log.Println(err)
+			}
+
 			vaultState.Galleries = galleries
 
-			collections, _ := scanCollections(vaultCollectionsPath)
+			collections, err := scanCollections(vaultCollectionsPath)
+
+			if err != nil {
+				log.Println(err)
+			}
 
 			tagsSeen := make(map[string]struct{})
 
@@ -79,8 +93,9 @@ func Scan(root string) (World, error) {
 				collectionPath := filepath.Join(vaultCollectionsPath, c.Slug)
 
 				videos, tags, err := scanVideos(collectionPath)
+
 				if err != nil {
-					log.Println("video scan error:", err)
+					log.Println(err)
 					continue
 				}
 
@@ -143,7 +158,7 @@ func scanGalleries(picturePath string) ([]db.Gallery, error) {
 	entries, err := os.ReadDir(picturePath)
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to read collection: %w", err)
+		return nil, fmt.Errorf("scan galleries: %w", err)
 	}
 
 	var galleries []db.Gallery
@@ -162,7 +177,7 @@ func scanGalleries(picturePath string) ([]db.Gallery, error) {
 			galleryEntries, err := os.ReadDir(galleryPath)
 
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("scan galleries: %w", err)
 			}
 
 			galleryImageCount := 0
@@ -191,7 +206,7 @@ func scanActors(path string) ([]db.Actor, error) {
 	entries, err := os.ReadDir(actorsPath)
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to read actors: %w", err)
+		return nil, fmt.Errorf("scanning actors: %w", err)
 	}
 
 	var actors []db.Actor
@@ -212,8 +227,9 @@ func scanActors(path string) ([]db.Actor, error) {
 
 func scanCollections(vaultPath string) ([]db.Collection, error) {
 	entries, err := os.ReadDir(vaultPath)
+
 	if err != nil {
-		return nil, fmt.Errorf("failed to read vault: %w", err)
+		return nil, fmt.Errorf("scan collections: %w", err)
 	}
 
 	var collections []db.Collection
@@ -237,8 +253,9 @@ func scanCollections(vaultPath string) ([]db.Collection, error) {
 
 func scanVideos(collectionPath string) ([]db.Video, []string, error) {
 	entries, err := os.ReadDir(collectionPath)
+
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to read collection: %w", err)
+		return nil, nil, fmt.Errorf("scan videos: %w", err)
 	}
 
 	var videos []db.Video
@@ -254,6 +271,7 @@ func scanVideos(collectionPath string) ([]db.Video, []string, error) {
 			}
 
 			metadata, err := parseNfoFile(nfoPath)
+
 			if err != nil {
 				return nil, nil, fmt.Errorf("failed to parse .nfo for %v: %w", folderName, err)
 			}

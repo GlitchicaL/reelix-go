@@ -3,7 +3,6 @@ package db
 import (
 	"context"
 	"fmt"
-	"log"
 )
 
 type Gallery struct {
@@ -60,7 +59,7 @@ func CreateGallery(galleries []Gallery) ([]Gallery, error) {
 	)
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("creating gallery: %w", err)
 	}
 
 	defer rows.Close()
@@ -76,7 +75,7 @@ func CreateGallery(galleries []Gallery) ([]Gallery, error) {
 		var g Gallery
 
 		if err := rows.Scan(&g.ID, &g.Title, &g.Slug, &g.ImageCount, &g.VaultID); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("creating gallery: %w", err)
 		}
 
 		dbGalleries = append(dbGalleries, g)
@@ -109,8 +108,7 @@ func GetGalleries(vaultId int) ([]Gallery, error) {
 	)
 
 	if err != nil {
-		log.Fatal("galleries query failed")
-		return nil, err
+		return nil, fmt.Errorf("fetching galleries: %w", err)
 	}
 	defer rows.Close()
 
@@ -120,16 +118,14 @@ func GetGalleries(vaultId int) ([]Gallery, error) {
 		var g Gallery
 
 		if err := rows.Scan(&g.ID, &g.Title, &g.Slug, &g.ImageCount, &g.VaultID, &g.VaultName); err != nil {
-			log.Fatal("galleries scan failed")
-			return nil, err
+			return nil, fmt.Errorf("fetching galleries: %w", err)
 		}
 
 		galleries = append(galleries, g)
 	}
 
 	if err := rows.Err(); err != nil {
-		log.Fatal("galleries rows failed")
-		return nil, err
+		return nil, fmt.Errorf("fetching galleries: %w", err)
 	}
 
 	return galleries, nil
@@ -161,7 +157,7 @@ func GetGallery(galleryId int) (*Gallery, error) {
 	).Scan(&g.ID, &g.Title, &g.Slug, &g.ImageCount, &g.VaultID, &g.VaultName)
 
 	if err != nil {
-		return nil, fmt.Errorf("error fetching gallery: %v", err)
+		return nil, fmt.Errorf("fetching gallery: %w", err)
 	}
 
 	return &g, nil

@@ -102,7 +102,7 @@ func GetVault(vaultId int) (*Vault, error) {
 	).Scan(&va.ID, &va.Name)
 
 	if err != nil {
-		return nil, fmt.Errorf("error fetching video: %v", err)
+		return nil, fmt.Errorf("fetching video: %w", err)
 	}
 
 	return &va, nil

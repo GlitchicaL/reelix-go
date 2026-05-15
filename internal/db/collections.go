@@ -2,7 +2,7 @@ package db
 
 import (
 	"context"
-	"log"
+	"fmt"
 )
 
 type Collection struct {
@@ -56,7 +56,7 @@ func CreateCollections(collections []Collection) ([]Collection, error) {
 	)
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("creating collections: %w", err)
 	}
 
 	defer rows.Close()
@@ -72,7 +72,7 @@ func CreateCollections(collections []Collection) ([]Collection, error) {
 		var c Collection
 
 		if err := rows.Scan(&c.ID, &c.Name, &c.Slug, &c.Path, &c.VaultID); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("creating collections: %w", err)
 		}
 
 		dbCollections = append(dbCollections, c)
@@ -86,6 +86,7 @@ func GetCollections(vaultId int) ([]Collection, error) {
 		SELECT 
 			c.id, 
 			c.name AS collection_name, 
+			c.slug AS collection_slug,
 			v.name AS vault_name
 		FROM 
 			collections c
@@ -102,8 +103,7 @@ func GetCollections(vaultId int) ([]Collection, error) {
 	)
 
 	if err != nil {
-		log.Fatal("collection query failed")
-		return nil, err
+		return nil, fmt.Errorf("fetching collections: %w", err)
 	}
 	defer rows.Close()
 
@@ -112,15 +112,15 @@ func GetCollections(vaultId int) ([]Collection, error) {
 	for rows.Next() {
 		var c Collection
 
-		if err := rows.Scan(&c.ID, &c.Name, &c.VaultName); err != nil {
-			return nil, err
+		if err := rows.Scan(&c.ID, &c.Name, &c.Slug, &c.VaultName); err != nil {
+			return nil, fmt.Errorf("fetching collections: %w", err)
 		}
 
 		collections = append(collections, c)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fetching collections: %w", err)
 	}
 
 	return collections, nil

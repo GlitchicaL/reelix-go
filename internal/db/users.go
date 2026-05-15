@@ -32,7 +32,7 @@ func CreateUser(username string, password string, isAdmin bool) (*User, error) {
 	).Scan(&u.ID)
 
 	if err != nil {
-		return nil, fmt.Errorf("error creating user: %v", err)
+		return nil, fmt.Errorf("creating user: %w", err)
 	}
 
 	return &u, nil
@@ -50,7 +50,7 @@ func GetUser(username string) (*User, error) {
 	).Scan(&u.ID, &u.Username, &u.Password, &u.IsAdmin)
 
 	if err != nil {
-		return nil, fmt.Errorf("error fetching user: %v", err)
+		return nil, fmt.Errorf("fetching user: %w", err)
 	}
 
 	return &u, nil
@@ -68,7 +68,7 @@ func GetUserByRefreshToken(hashedToken string) (*User, error) {
 	).Scan(&u.ID, &u.Username, &u.Password, &u.RefreshTokenHash, &u.RefreshTokenExpiryDate, &u.IsAdmin)
 
 	if err != nil {
-		return nil, fmt.Errorf("error fetching user: %v", err)
+		return nil, fmt.Errorf("fetching user: %w", err)
 	}
 
 	return &u, nil
@@ -91,7 +91,7 @@ func SetUserRefreshToken(id int, hashedToken string, tokenExpiryDate time.Time) 
 	)
 
 	if err != nil {
-		return fmt.Errorf("error updating refresh token: %v", err)
+		return fmt.Errorf("updating refresh token: %w", err)
 	}
 
 	if cmdTag.RowsAffected() == 0 {
@@ -112,7 +112,7 @@ func GetUserCount() (int, error) {
 	).Scan(&count)
 
 	if err != nil {
-		return 0, fmt.Errorf("error fetching user count: %v", err)
+		return 0, fmt.Errorf("fetching user count: %w", err)
 	}
 
 	return count, nil

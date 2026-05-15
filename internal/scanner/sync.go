@@ -27,18 +27,18 @@ func Sync(world World) error {
 			dbVaults, err := SyncVaults([]db.Vault{v.Vault})
 
 			if err != nil {
-				log.Println("vault sync error:", err)
+				log.Println(err)
 				return
 			}
 
 			vaultID := dbVaults[0].ID
 
 			if _, err = SyncActors(v.Actors); err != nil {
-				log.Println("actor sync error:", err)
+				log.Println(err)
 			}
 
 			if _, err = SyncTags(v.Tags); err != nil {
-				log.Println("tags sync error:", err)
+				log.Println(err)
 			}
 
 			for i := range v.Galleries {
@@ -46,7 +46,7 @@ func Sync(world World) error {
 			}
 
 			if _, err := SyncGalleries(v.Galleries); err != nil {
-				log.Println("gallery sync error:", err)
+				log.Println(err)
 			}
 
 			var collectionsToSync []db.Collection
@@ -57,7 +57,7 @@ func Sync(world World) error {
 
 			dbCollections, err := SyncCollections(collectionsToSync)
 			if err != nil {
-				log.Println("collection sync error:", err)
+				log.Println(err)
 				return
 			}
 
@@ -78,15 +78,15 @@ func Sync(world World) error {
 				}
 
 				if _, err := SyncVideos(c.Videos); err != nil {
-					log.Println("video sync error:", err)
+					log.Println(err)
 				}
 
 				if err := SyncVideoTags(c.Videos, v.Tags); err != nil {
-					log.Println("video tag sync error:", err)
+					log.Println(err)
 				}
 
 				if err := SyncVideoActors(c.Videos, v.Actors); err != nil {
-					log.Println("video tag sync error:", err)
+					log.Println(err)
 				}
 			}
 
@@ -100,7 +100,7 @@ func SyncVaults(vaults []db.Vault) ([]db.Vault, error) {
 	dbVaults, err := db.CreateVaults(vaults)
 
 	if err != nil {
-		return nil, fmt.Errorf("db vaults sync error: %v", err)
+		return nil, fmt.Errorf("db vaults sync: %w", err)
 	}
 
 	return dbVaults, nil
@@ -110,7 +110,7 @@ func SyncGalleries(galleries []db.Gallery) ([]db.Gallery, error) {
 	dbGalleries, err := db.CreateGallery(galleries)
 
 	if err != nil {
-		return nil, fmt.Errorf("db galleries sync error: %v", err)
+		return nil, fmt.Errorf("db galleries sync: %w", err)
 	}
 
 	return dbGalleries, nil
@@ -120,7 +120,7 @@ func SyncCollections(collections []db.Collection) ([]db.Collection, error) {
 	dbCollections, err := db.CreateCollections(collections)
 
 	if err != nil {
-		return nil, fmt.Errorf("db collections sync error: %v", err)
+		return nil, fmt.Errorf("db collections sync: %w", err)
 	}
 
 	return dbCollections, nil
@@ -130,7 +130,7 @@ func SyncVideos(videos []db.Video) ([]db.Video, error) {
 	dbVideos, err := db.CreateVideos(videos)
 
 	if err != nil {
-		return nil, fmt.Errorf("db videos sync error: %v", err)
+		return nil, fmt.Errorf("db videos sync: %w", err)
 	}
 
 	/*
@@ -160,7 +160,7 @@ func SyncTags(tags []db.Tag) ([]db.Tag, error) {
 	dbTags, err := db.CreateTags(tags)
 
 	if err != nil {
-		return nil, fmt.Errorf("db tags sync error: %v", err)
+		return nil, fmt.Errorf("db tags sync: %w", err)
 	}
 
 	/*
@@ -190,7 +190,7 @@ func SyncVideoTags(videos []db.Video, tags []db.Tag) error {
 	err := db.LinkVideoTags(videos, tags)
 
 	if err != nil {
-		return fmt.Errorf("db actors sync error: %v", err)
+		return fmt.Errorf("db video tags sync: %w", err)
 	}
 
 	return nil
@@ -200,7 +200,7 @@ func SyncActors(actors []db.Actor) ([]db.Actor, error) {
 	dbActors, err := db.CreateActors(actors)
 
 	if err != nil {
-		return nil, fmt.Errorf("db actors sync error: %v", err)
+		return nil, fmt.Errorf("db actors sync: %w", err)
 	}
 
 	/*
@@ -230,7 +230,7 @@ func SyncVideoActors(videos []db.Video, actors []db.Actor) error {
 	err := db.LinkVideoActors(videos, actors)
 
 	if err != nil {
-		return fmt.Errorf("db actors sync error: %v", err)
+		return fmt.Errorf("db video actors sync: %w", err)
 	}
 
 	return nil

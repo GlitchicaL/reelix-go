@@ -3,7 +3,6 @@ package db
 import (
 	"context"
 	"fmt"
-	"log"
 )
 
 type Video struct {
@@ -150,8 +149,7 @@ func GetVideos(collectionId int) ([]Video, error) {
 	)
 
 	if err != nil {
-		log.Fatal("videos query failed")
-		return nil, err
+		return nil, fmt.Errorf("fetching videos: %w", err)
 	}
 	defer rows.Close()
 
@@ -160,16 +158,14 @@ func GetVideos(collectionId int) ([]Video, error) {
 	for rows.Next() {
 		var v Video
 		if err := rows.Scan(&v.ID, &v.Title, &v.Slug, &v.Studio, &v.CollectionName, &v.VaultID, &v.VaultName); err != nil {
-			log.Fatal("videos scan failed")
-			return nil, err
+			return nil, fmt.Errorf("fetching videos: %w", err)
 		}
 
 		videos = append(videos, v)
 	}
 
 	if err := rows.Err(); err != nil {
-		log.Fatal("videos rows failed")
-		return nil, err
+		return nil, fmt.Errorf("fetching videos: %w", err)
 	}
 
 	return videos, nil
@@ -220,7 +216,7 @@ func GetVideo(videoId int) (*Video, error) {
 	).Scan(&v.Title, &v.Slug, &v.Studio, &v.CollectionName, &v.VaultName, &v.Tags, &v.Actors)
 
 	if err != nil {
-		return nil, fmt.Errorf("error fetching video: %v", err)
+		return nil, fmt.Errorf("fetching video: %w", err)
 	}
 
 	return &v, nil

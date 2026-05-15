@@ -11,22 +11,20 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		cookie, err := r.Cookie("reelix_auth_token")
 
 		if err != nil {
-			http.Error(w, "Unauthorized 1", http.StatusUnauthorized)
+			log.Printf("auth token not received: %v", err)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
 
 		tokenStr := cookie.Value
 
-		log.Printf("auth token %v", tokenStr)
-
 		claims, err := validateJWT(tokenStr)
 		if err != nil {
-			log.Printf("err %v", err.Error())
-			http.Error(w, "Unauthorized 2", http.StatusUnauthorized)
+			log.Printf("unable to validate token %v: %v", tokenStr, err)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
 
-		// store user info in context
 		ctx := context.WithValue(r.Context(), "user", claims)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})

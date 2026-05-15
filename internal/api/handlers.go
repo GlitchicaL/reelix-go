@@ -33,6 +33,7 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	if err := json.NewEncoder(w).Encode(data); err != nil {
+		log.Printf("unable to encode metadata: %v", err)
 		http.Error(w, "Unable to encode metadata", http.StatusInternalServerError)
 	}
 }
@@ -41,7 +42,9 @@ func vaultsHandler(w http.ResponseWriter, r *http.Request) {
 	vaults, err := db.GetVaults()
 
 	if err != nil {
-		log.Fatalf("error fetching vaults")
+		log.Printf("error fetching vaults: %v", err)
+		http.Error(w, "Unknown error", http.StatusInternalServerError)
+		return
 	}
 
 	// Respond with the metadata as JSON
@@ -58,13 +61,17 @@ func vaultHandler(w http.ResponseWriter, r *http.Request) {
 	vaultId, err := strconv.Atoi(vars["vaultId"])
 
 	if err != nil {
-		log.Fatalf("invalid vault id")
+		log.Printf("invalid vault id: %v", err)
+		http.Error(w, "Unknown error", http.StatusInternalServerError)
+		return
 	}
 
 	vault, err := db.GetVault(vaultId)
 
 	if err != nil {
-		log.Fatalf("error fetching vault")
+		log.Printf("error fetching vault %d: %v", vaultId, err)
+		http.Error(w, "Unknown error", http.StatusInternalServerError)
+		return
 	}
 
 	// Respond with the metadata as JSON
@@ -81,13 +88,17 @@ func collectionsHandler(w http.ResponseWriter, r *http.Request) {
 	vaultId, err := strconv.Atoi(vars["vaultId"])
 
 	if err != nil {
-		log.Fatalf("invalid vault id")
+		log.Printf("invalid vault id: %v", err)
+		http.Error(w, "Unknown error", http.StatusInternalServerError)
+		return
 	}
 
 	collections, err := db.GetCollections(vaultId)
 
 	if err != nil {
-		log.Fatalf("error fetching collections from vault %v", vaultId)
+		log.Printf("error fetching collections from vault %d: %v", vaultId, err)
+		http.Error(w, "Unknown error", http.StatusInternalServerError)
+		return
 	}
 
 	// Respond with the metadata as JSON
@@ -104,13 +115,17 @@ func videosHandler(w http.ResponseWriter, r *http.Request) {
 	collectionId, err := strconv.Atoi(vars["collectionId"])
 
 	if err != nil {
-		log.Fatalf("invalid collection id")
+		log.Printf("invalid collection id: %v", err)
+		http.Error(w, "Unknown error", http.StatusInternalServerError)
+		return
 	}
 
 	videos, err := db.GetVideos(collectionId)
 
 	if err != nil {
-		log.Fatalf("error fetching videos from collection %v", collectionId)
+		log.Printf("error fetching videos from collection %d: %v", collectionId, err)
+		http.Error(w, "Unknown error", http.StatusInternalServerError)
+		return
 	}
 
 	// Respond with the metadata as JSON
@@ -127,13 +142,17 @@ func videoHandler(w http.ResponseWriter, r *http.Request) {
 	videoId, err := strconv.Atoi(vars["videoId"])
 
 	if err != nil {
-		log.Fatalf("invalid video id")
+		log.Printf("invalid video id: %v", err)
+		http.Error(w, "Unknown error", http.StatusInternalServerError)
+		return
 	}
 
 	video, err := db.GetVideo(videoId)
 
 	if err != nil {
-		log.Fatalf("error fetching video %v", videoId)
+		log.Printf("error fetching video %d: %v", videoId, err)
+		http.Error(w, "Unknown error", http.StatusInternalServerError)
+		return
 	}
 
 	// Respond with the metadata as JSON
@@ -150,13 +169,17 @@ func actorsHandler(w http.ResponseWriter, r *http.Request) {
 	vaultId, err := strconv.Atoi(vars["vaultId"])
 
 	if err != nil {
-		log.Fatalf("invalid vault id")
+		log.Printf("invalid vault id: %v", err)
+		http.Error(w, "Unknown error", http.StatusInternalServerError)
+		return
 	}
 
 	vault, err := db.GetVault(vaultId)
 
 	if err != nil {
-		log.Fatalf("error fetching vault %v", vaultId)
+		log.Printf("error fetching vault %d: %v", vaultId, err)
+		http.Error(w, "Unknown error", http.StatusInternalServerError)
+		return
 	}
 
 	actors, err := db.GetActors(vaultId)
@@ -172,7 +195,9 @@ func actorsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		log.Fatalf("error fetching actors from vault %v", vaultId)
+		log.Printf("error fetching actors from vault %d: %v", vaultId, err)
+		http.Error(w, "Unknown error", http.StatusInternalServerError)
+		return
 	}
 
 	if err := json.NewEncoder(w).Encode(data); err != nil {
@@ -186,13 +211,17 @@ func galleriesHandler(w http.ResponseWriter, r *http.Request) {
 	vaultId, err := strconv.Atoi(vars["vaultId"])
 
 	if err != nil {
-		log.Fatalf("invalid vault id")
+		log.Printf("invalid vault id")
+		http.Error(w, "Unknown error", http.StatusInternalServerError)
+		return
 	}
 
 	galleries, err := db.GetGalleries(vaultId)
 
 	if err != nil {
-		log.Fatalf("error fetching galleries from vault %v", vaultId)
+		log.Printf("error fetching galleries from vault %d: %v", vaultId, err)
+		http.Error(w, "Unknown error", http.StatusInternalServerError)
+		return
 	}
 
 	if err := json.NewEncoder(w).Encode(galleries); err != nil {
@@ -206,13 +235,17 @@ func galleryHandler(w http.ResponseWriter, r *http.Request) {
 	galleryId, err := strconv.Atoi(vars["galleryId"])
 
 	if err != nil {
-		log.Fatalf("invalid gallery id")
+		log.Printf("invalid gallery id")
+		http.Error(w, "Unknown error", http.StatusInternalServerError)
+		return
 	}
 
 	gallery, err := db.GetGallery(galleryId)
 
 	if err != nil {
-		log.Fatalf("error fetching gallery from vault %v", galleryId)
+		log.Printf("error fetching gallery %d: %v", galleryId, err)
+		http.Error(w, "Unknown error", http.StatusInternalServerError)
+		return
 	}
 
 	if err := json.NewEncoder(w).Encode(gallery); err != nil {
@@ -227,6 +260,7 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		log.Printf("invalid json: %v", err)
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
@@ -239,6 +273,7 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 	_, err := db.GetUser(input.Username)
 
 	if err == nil {
+		log.Printf("user already exists")
 		http.Error(w, "Username already in use", http.StatusConflict)
 		return
 	}
@@ -246,13 +281,17 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 	count, err := db.GetUserCount()
 
 	if err != nil {
+		log.Printf("error fetching user count: %v", err)
 		http.Error(w, "Error fetching user count", http.StatusInternalServerError)
 		return
 	}
 
 	var isAdmin = false
 
-	// Our first registered user will be admin by default
+	/*
+		Our first registered user will be admin by default
+	*/
+
 	if count == 0 {
 		isAdmin = true
 	}
@@ -260,6 +299,7 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.Password), 14)
 
 	if err != nil {
+		log.Printf("error hashing password: %v", err)
 		http.Error(w, "Error hashing password", http.StatusInternalServerError)
 		return
 	}
@@ -267,6 +307,7 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 	_, err = db.CreateUser(input.Username, string(hashedPassword), isAdmin)
 
 	if err != nil {
+		log.Printf("error creating user: %v", err)
 		http.Error(w, "Error saving user", http.StatusInternalServerError)
 		return
 	}
@@ -282,6 +323,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		log.Printf("invalid json: %v", err)
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
@@ -294,11 +336,13 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	user, err := db.GetUser(input.Username)
 
 	if err != nil {
+		log.Printf("invalid credentials: %v", err)
 		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 		return
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.Password)); err != nil {
+		log.Printf("invalid credentials: %v", err)
 		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 		return
 	}
@@ -309,6 +353,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	refreshToken, hashedRefreshToken, refreshTokenExpiresAt, err := generateRefresh(refreshTokenExp)
 
 	if err != nil {
+		log.Printf("error generating refresh token: %v", err)
 		http.Error(w, "Error generating refresh token", http.StatusInternalServerError)
 		return
 	}
@@ -316,17 +361,16 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	accessToken, err := generateJWT(user.Username, user.IsAdmin, accessTokenExp)
 
 	if err != nil {
+		log.Printf("error generating access token: %v", err)
 		http.Error(w, "Error generating access token", http.StatusInternalServerError)
 		return
 	}
 
 	if err := db.SetUserRefreshToken(user.ID, hashedRefreshToken, refreshTokenExpiresAt); err != nil {
+		log.Printf("error updating refresh token: %v", err)
 		http.Error(w, "Error updating refresh token", http.StatusInternalServerError)
 		return
 	}
-
-	log.Printf("refresh token %v", refreshToken)
-	log.Printf("access token %v", accessToken)
 
 	refreshCookie := &http.Cookie{
 		Name:     "reelix_refresh_token",
@@ -364,6 +408,7 @@ func refreshHandler(w http.ResponseWriter, r *http.Request) {
 	refreshCookie, err := r.Cookie("reelix_refresh_token")
 
 	if err != nil {
+		log.Printf("refresh token not passed: %v", err)
 		http.Error(w, "Refresh token error", http.StatusInternalServerError)
 		return
 	}
@@ -375,6 +420,7 @@ func refreshHandler(w http.ResponseWriter, r *http.Request) {
 	user, err := db.GetUserByRefreshToken(hashedToken)
 
 	if err != nil {
+		log.Printf("invalid refresh token: %v", err)
 		http.Error(w, "Invalid refresh token", http.StatusUnauthorized)
 		return
 	}
@@ -387,6 +433,7 @@ func refreshHandler(w http.ResponseWriter, r *http.Request) {
 	accessToken, err := generateJWT(user.Username, user.IsAdmin, accessTokenExp)
 
 	if err != nil {
+		log.Printf("error generating access token: %v", err)
 		http.Error(w, "Error generating access token", http.StatusInternalServerError)
 		return
 	}
