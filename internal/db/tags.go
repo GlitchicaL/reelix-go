@@ -23,6 +23,12 @@ func CreateTags(tags []Tag) ([]Tag, error) {
 		names[i] = t.Name
 	}
 
+	/*
+		Even though updating the name on a conflict
+		is redundant, it is needed in order for the
+		row to be returned.
+	*/
+
 	query := `
 		INSERT INTO tags (name) 
 		SELECT *

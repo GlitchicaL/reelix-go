@@ -8,6 +8,7 @@ import (
 type Vault struct {
 	ID   int    `json:"id"`
 	Name string `json:"name"`
+	Slug string `json:"slug"`
 }
 
 func CreateVaults(vaults []Vault) ([]Vault, error) {
@@ -16,27 +17,35 @@ func CreateVaults(vaults []Vault) ([]Vault, error) {
 	// to just loop and append.
 
 	names := make([]string, len(vaults))
+	slugs := make([]string, len(vaults))
 
 	for i, v := range vaults {
 		names[i] = v.Name
+		slugs[i] = v.Slug
 	}
 
 	query := `
-        INSERT INTO vaults (name)
-        SELECT UNNEST($1::text[])
-        ON CONFLICT (name)
-        DO UPDATE SET name = EXCLUDED.name
-        RETURNING id, name;
+        INSERT INTO vaults (name, slug)
+        SELECT *
+		FROM UNNEST(
+			$1::text[],
+			$2::text[]
+		)
+        ON CONFLICT (slug) DO UPDATE 
+		SET 
+			name = EXCLUDED.name
+        RETURNING id, name, slug;
 	`
 
 	rows, err := db.Query(
 		context.Background(),
 		query,
 		names,
+		slugs,
 	)
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("creating vaults: %w", err)
 	}
 
 	defer rows.Close()
@@ -51,8 +60,8 @@ func CreateVaults(vaults []Vault) ([]Vault, error) {
 	for rows.Next() {
 		var v Vault
 
-		if err := rows.Scan(&v.ID, &v.Name); err != nil {
-			return nil, err
+		if err := rows.Scan(&v.ID, &v.Name, &v.Slug); err != nil {
+			return nil, fmt.Errorf("creating vaults: %w", err)
 		}
 
 		dbVaults = append(dbVaults, v)
@@ -62,14 +71,14 @@ func CreateVaults(vaults []Vault) ([]Vault, error) {
 }
 
 func GetVaults() ([]Vault, error) {
-	query := `SELECT id, name FROM vaults`
+	query := `SELECT id, name, slug FROM vaults`
 	rows, err := db.Query(
 		context.Background(),
 		query,
 	)
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("creating vault: %w", err)
 	}
 	defer rows.Close()
 
@@ -77,21 +86,23 @@ func GetVaults() ([]Vault, error) {
 
 	for rows.Next() {
 		var v Vault
-		if err := rows.Scan(&v.ID, &v.Name); err != nil {
-			return nil, err
+
+		if err := rows.Scan(&v.ID, &v.Name, &v.Slug); err != nil {
+			return nil, fmt.Errorf("creating vault: %w", err)
 		}
+
 		vaults = append(vaults, v)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("creating vault: %w", err)
 	}
 
 	return vaults, nil
 }
 
 func GetVault(vaultId int) (*Vault, error) {
-	query := `SELECT id, name FROM vaults WHERE id = $1`
+	query := `SELECT id, name, slug FROM vaults WHERE id = $1`
 
 	var va Vault
 
@@ -99,10 +110,10 @@ func GetVault(vaultId int) (*Vault, error) {
 		context.Background(),
 		query,
 		vaultId,
-	).Scan(&va.ID, &va.Name)
+	).Scan(&va.ID, &va.Name, &va.Slug)
 
 	if err != nil {
-		return nil, fmt.Errorf("fetching video: %w", err)
+		return nil, fmt.Errorf("fetching vault: %w", err)
 	}
 
 	return &va, nil

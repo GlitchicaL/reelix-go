@@ -3,7 +3,6 @@ package db
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -33,7 +32,7 @@ func CreateActors(actors []Actor) ([]Actor, error) {
 			$1::text[],
 			$2::text[]
 		)
-		ON CONFLICT (name, slug) DO UPDATE
+		ON CONFLICT (slug) DO UPDATE
 		SET 
 			name = EXCLUDED.name
 		RETURNING id, name, slug
@@ -47,7 +46,7 @@ func CreateActors(actors []Actor) ([]Actor, error) {
 	)
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("creating actors: %w", err)
 	}
 
 	defer rows.Close()
@@ -63,38 +62,13 @@ func CreateActors(actors []Actor) ([]Actor, error) {
 		var a Actor
 
 		if err := rows.Scan(&a.ID, &a.Name, &a.Slug); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("creating actors: %w", err)
 		}
 
 		dbActors = append(dbActors, a)
 	}
 
 	return dbActors, nil
-}
-
-func CreateActor(actor Actor) (*int, error) {
-	query := `
-		INSERT INTO actors (name, slug) VALUES ($1, $2)
-		ON CONFLICT (name, slug) DO NOTHING
-		RETURNING id
-	`
-
-	var actorId int
-
-	err := db.QueryRow(
-		context.Background(),
-		query,
-		actor.Name,
-		actor.Slug,
-	).Scan(&actorId)
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to insert actor %s: %w", actor.Name, err)
-	}
-
-	log.Printf("actor added: %v", actor.Name)
-
-	return &actorId, nil
 }
 
 func LinkVideoActor(videoId int, actorId int, tx pgx.Tx) error {

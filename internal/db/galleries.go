@@ -11,7 +11,7 @@ type Gallery struct {
 	Slug       string `json:"slug"`
 	ImageCount int    `json:"imageCount"`
 	VaultID    int    `json:"vaultId"`
-	VaultName  string `json:"vaultName"`
+	VaultSlug  string `json:"vaultSlug"`
 }
 
 func CreateGallery(galleries []Gallery) ([]Gallery, error) {
@@ -40,12 +40,10 @@ func CreateGallery(galleries []Gallery) ([]Gallery, error) {
 			$3::int[],
 			$4::int[]
 		)
-		ON CONFLICT (title, slug) 
+		ON CONFLICT (slug, vault_id) 
 		DO UPDATE SET
 			title = EXCLUDED.title,
-			slug = EXCLUDED.slug,
-			image_count = EXCLUDED.image_count,
-			vault_id = EXCLUDED.vault_id
+			image_count = EXCLUDED.image_count
 		RETURNING id, title, slug, image_count, vault_id
 	`
 
@@ -92,7 +90,7 @@ func GetGalleries(vaultId int) ([]Gallery, error) {
 			g.slug,
 			g.image_count,
 			v.id AS vault_id,
-			v.name AS vault_name
+			v.slug AS vault_slug
 		FROM
 			galleries g
 		JOIN 
@@ -117,7 +115,7 @@ func GetGalleries(vaultId int) ([]Gallery, error) {
 	for rows.Next() {
 		var g Gallery
 
-		if err := rows.Scan(&g.ID, &g.Title, &g.Slug, &g.ImageCount, &g.VaultID, &g.VaultName); err != nil {
+		if err := rows.Scan(&g.ID, &g.Title, &g.Slug, &g.ImageCount, &g.VaultID, &g.VaultSlug); err != nil {
 			return nil, fmt.Errorf("fetching galleries: %w", err)
 		}
 
@@ -139,7 +137,7 @@ func GetGallery(galleryId int) (*Gallery, error) {
 			g.slug,
 			g.image_count,
 			v.id AS vault_id,
-			v.name AS vault_name
+			v.slug AS vault_slug
 		FROM
 			galleries g
 		JOIN 
@@ -154,7 +152,7 @@ func GetGallery(galleryId int) (*Gallery, error) {
 		context.Background(),
 		query,
 		galleryId,
-	).Scan(&g.ID, &g.Title, &g.Slug, &g.ImageCount, &g.VaultID, &g.VaultName)
+	).Scan(&g.ID, &g.Title, &g.Slug, &g.ImageCount, &g.VaultID, &g.VaultSlug)
 
 	if err != nil {
 		return nil, fmt.Errorf("fetching gallery: %w", err)

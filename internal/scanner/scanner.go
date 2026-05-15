@@ -143,8 +143,11 @@ func scanVaults(rootPath string) ([]db.Vault, error) {
 
 	for _, entry := range entries {
 		if entry.IsDir() {
+			vaultName := entry.Name()
+
 			vaults = append(vaults, db.Vault{
-				Name: entry.Name(),
+				Name: utils.SnakeToTitle(vaultName),
+				Slug: vaultName,
 			})
 		}
 	}

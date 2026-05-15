@@ -14,8 +14,10 @@ type Video struct {
 	Actors         []Actor  `json:"actors"`
 	CollectionID   int      `json:"collectionId"`
 	CollectionName string   `json:"collectionName"`
+	CollectionSlug string   `json:"collectionSlug"`
 	VaultID        int      `json:"vaultId"`
 	VaultName      string   `json:"vaultName"`
+	VaultSlug      string   `json:"vaultSlug"`
 }
 
 func CreateVideos(videos []Video) ([]Video, error) {
@@ -43,7 +45,7 @@ func CreateVideos(videos []Video) ([]Video, error) {
 			$3::text[],
 			$4::int[]
 		)
-		ON CONFLICT (slug) DO UPDATE 
+		ON CONFLICT (slug, collection_id) DO UPDATE 
 		SET
 			title = EXCLUDED.title,
 			studio = EXCLUDED.studio
@@ -85,43 +87,6 @@ func CreateVideos(videos []Video) ([]Video, error) {
 	return dbVideos, nil
 }
 
-func CreateVideo(video Video) error {
-	tx, err := db.Begin(context.Background())
-
-	if err != nil {
-		return fmt.Errorf("failed to begin video transaction: %w", err)
-	}
-
-	defer tx.Rollback(context.Background())
-
-	query := `
-		INSERT INTO videos (title, slug, studio, collection_id)
-		VALUES ($1, $2, $3, $4)
-		ON CONFLICT (slug) DO UPDATE
-		SET
-			title = EXCLUDED.title,
-			studio = EXCLUDED.studio
-		RETURNING id
-	`
-
-	var videoId int
-
-	err = tx.QueryRow(
-		context.Background(),
-		query,
-		video.Title,
-		video.Slug,
-		video.Studio,
-		video.CollectionID,
-	).Scan(&videoId)
-
-	if err != nil {
-		return fmt.Errorf("db insert error: %w", err)
-	}
-
-	return nil
-}
-
 func GetVideos(collectionId int) ([]Video, error) {
 	query := `
 		SELECT 
@@ -130,8 +95,9 @@ func GetVideos(collectionId int) ([]Video, error) {
 			v.slug,
 			v.studio,
 			c.name AS collection_name,
+			c.slug AS collection_slug,
 			va.id AS vault_id,
-			va.name AS vault_name
+			va.slug AS vault_slug
 		FROM 
 			videos v
 		JOIN 
@@ -157,7 +123,7 @@ func GetVideos(collectionId int) ([]Video, error) {
 
 	for rows.Next() {
 		var v Video
-		if err := rows.Scan(&v.ID, &v.Title, &v.Slug, &v.Studio, &v.CollectionName, &v.VaultID, &v.VaultName); err != nil {
+		if err := rows.Scan(&v.ID, &v.Title, &v.Slug, &v.Studio, &v.CollectionName, &v.CollectionSlug, &v.VaultID, &v.VaultSlug); err != nil {
 			return nil, fmt.Errorf("fetching videos: %w", err)
 		}
 
@@ -177,8 +143,8 @@ func GetVideo(videoId int) (*Video, error) {
             v.title,
             v.slug,
 			v.studio,
-            c.name AS collection_name,
-            va.name AS vault_name,
+            c.slug AS collection_slug,
+            va.slug AS vault_slug,
 			COALESCE(ARRAY_AGG(DISTINCT t.name) FILTER (WHERE t.name IS NOT NULL), '{}') AS tags,
 			COALESCE(
 				json_agg(
@@ -203,7 +169,7 @@ func GetVideo(videoId int) (*Video, error) {
         WHERE 
             v.id = $1
 		GROUP BY 
-    		v.id, c.name, va.name
+    		v.id, c.slug, va.slug
         LIMIT 1
     `
 
@@ -213,7 +179,7 @@ func GetVideo(videoId int) (*Video, error) {
 		context.Background(),
 		query,
 		videoId,
-	).Scan(&v.Title, &v.Slug, &v.Studio, &v.CollectionName, &v.VaultName, &v.Tags, &v.Actors)
+	).Scan(&v.Title, &v.Slug, &v.Studio, &v.CollectionSlug, &v.VaultSlug, &v.Tags, &v.Actors)
 
 	if err != nil {
 		return nil, fmt.Errorf("fetching video: %w", err)

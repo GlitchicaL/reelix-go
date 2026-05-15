@@ -1,7 +1,8 @@
 -- Vaults Table
 CREATE TABLE IF NOT EXISTS vaults (
     id         SERIAL PRIMARY KEY,
-    name       TEXT NOT NULL UNIQUE
+    name       TEXT NOT NULL,
+    slug       TEXT NOT NULL UNIQUE
 );
 
 -- Collections Table
@@ -12,17 +13,18 @@ CREATE TABLE IF NOT EXISTS collections (
     path       TEXT,
     vault_id   INTEGER NOT NULL,
     FOREIGN KEY (vault_id) REFERENCES vaults(id) ON DELETE CASCADE,
-    UNIQUE (name, vault_id)
+    UNIQUE (slug, vault_id)
 );
 
 -- Videos Table
 CREATE TABLE IF NOT EXISTS videos (
     id             SERIAL PRIMARY KEY,
     title          TEXT NOT NULL,
-    slug           TEXT NOT NULL UNIQUE,
+    slug           TEXT NOT NULL,
     studio         TEXT,
     collection_id  INTEGER NOT NULL,
-    FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE
+    FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE,
+    UNIQUE (slug, collection_id)
 );
 
 -- Tags Table
@@ -44,8 +46,7 @@ CREATE TABLE IF NOT EXISTS video_tags (
 CREATE TABLE IF NOT EXISTS actors (
     id         SERIAL PRIMARY KEY,
     name       TEXT NOT NULL,
-    slug       TEXT NOT NULL,
-    UNIQUE (name, slug)
+    slug       TEXT NOT NULL UNIQUE
 );
 
 -- Join Table: video_actors (many-to-many)
@@ -64,7 +65,7 @@ CREATE TABLE IF NOT EXISTS galleries (
     image_count     INTEGER,
     vault_id        INTEGER NOT NULL,
     FOREIGN KEY (vault_id) REFERENCES vaults(id) ON DELETE CASCADE,
-    UNIQUE (title, slug)
+    UNIQUE (slug, vault_id)
 );
 
 CREATE TABLE IF NOT EXISTS users (

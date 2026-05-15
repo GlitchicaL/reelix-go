@@ -12,6 +12,7 @@ type Collection struct {
 	Path      string `json:"path"`
 	VaultID   int    `json:"vaultId"`
 	VaultName string `json:"vaultName"`
+	VaultSlug string `json:"vaultSlug"`
 }
 
 func CreateCollections(collections []Collection) ([]Collection, error) {
@@ -40,8 +41,9 @@ func CreateCollections(collections []Collection) ([]Collection, error) {
 			$3::text[],
 			$4::int[]
 		)
-		ON CONFLICT (name, vault_id) 
+		ON CONFLICT (slug, vault_id) 
 		DO UPDATE SET
+			name = EXCLUDED.name,
 			path = EXCLUDED.path
 		RETURNING id, name, slug, path, vault_id
 	`
@@ -87,7 +89,8 @@ func GetCollections(vaultId int) ([]Collection, error) {
 			c.id, 
 			c.name AS collection_name, 
 			c.slug AS collection_slug,
-			v.name AS vault_name
+			v.name AS vault_name,
+			v.slug AS vault_slug
 		FROM 
 			collections c
 		JOIN 
@@ -112,7 +115,7 @@ func GetCollections(vaultId int) ([]Collection, error) {
 	for rows.Next() {
 		var c Collection
 
-		if err := rows.Scan(&c.ID, &c.Name, &c.Slug, &c.VaultName); err != nil {
+		if err := rows.Scan(&c.ID, &c.Name, &c.Slug, &c.VaultName, &c.VaultSlug); err != nil {
 			return nil, fmt.Errorf("fetching collections: %w", err)
 		}
 
