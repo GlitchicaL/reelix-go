@@ -87,6 +87,11 @@ func CreateVideos(videos []Video) ([]Video, error) {
 	return dbVideos, nil
 }
 
+/*
+	Maybe consider a GetVideosWithMetadata() function
+	to select other metadata like collection and vault.
+*/
+
 func GetVideos(collectionId int) ([]Video, error) {
 	query := `
 		SELECT 
@@ -97,6 +102,7 @@ func GetVideos(collectionId int) ([]Video, error) {
 			c.name AS collection_name,
 			c.slug AS collection_slug,
 			va.id AS vault_id,
+			va.name AS vault_name,
 			va.slug AS vault_slug
 		FROM 
 			videos v
@@ -123,7 +129,7 @@ func GetVideos(collectionId int) ([]Video, error) {
 
 	for rows.Next() {
 		var v Video
-		if err := rows.Scan(&v.ID, &v.Title, &v.Slug, &v.Studio, &v.CollectionName, &v.CollectionSlug, &v.VaultID, &v.VaultSlug); err != nil {
+		if err := rows.Scan(&v.ID, &v.Title, &v.Slug, &v.Studio, &v.CollectionName, &v.CollectionSlug, &v.VaultID, &v.VaultName, &v.VaultSlug); err != nil {
 			return nil, fmt.Errorf("fetching videos: %w", err)
 		}
 

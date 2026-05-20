@@ -60,8 +60,8 @@ func Scan(root string) (World, error) {
 
 			vaultState := VaultState{Vault: v}
 
-			vaultCollectionsPath := filepath.Join(root, "vaults", v.Name, "collections")
-			vaultPicturesPath := filepath.Join(root, "vaults", v.Name, "pictures")
+			vaultCollectionsPath := filepath.Join(root, "vaults", v.Slug, "collections")
+			vaultPicturesPath := filepath.Join(root, "vaults", v.Slug, "pictures")
 
 			actors, err := scanActors(vaultPicturesPath)
 
@@ -122,7 +122,7 @@ func Scan(root string) (World, error) {
 
 			mu.Unlock()
 
-			log.Printf("%v added to world state", v.Name)
+			log.Printf("%v added to world state", v.Slug)
 		}(vault)
 	}
 
@@ -146,7 +146,7 @@ func scanVaults(rootPath string) ([]db.Vault, error) {
 			vaultName := entry.Name()
 
 			vaults = append(vaults, db.Vault{
-				Name: utils.SnakeToTitle(vaultName),
+				Name: utils.ToTitle(vaultName),
 				Slug: vaultName,
 			})
 		}
@@ -192,7 +192,7 @@ func scanGalleries(picturePath string) ([]db.Gallery, error) {
 			}
 
 			galleries = append(galleries, db.Gallery{
-				Title:      utils.SnakeToTitle(galleryName),
+				Title:      utils.ToTitle(galleryName),
 				Slug:       galleryName,
 				ImageCount: galleryImageCount,
 			})
@@ -242,7 +242,7 @@ func scanCollections(vaultPath string) ([]db.Collection, error) {
 			name := entry.Name()
 
 			collections = append(collections, db.Collection{
-				Name: utils.SnakeToTitle(entry.Name()),
+				Name: utils.ToTitle(entry.Name()),
 				Slug: name,
 				Path: filepath.Join(vaultPath, name),
 			})
@@ -269,19 +269,26 @@ func scanVideos(collectionPath string) ([]db.Video, []string, error) {
 			folderName := entry.Name()
 			nfoPath := filepath.Join(collectionPath, folderName, folderName+".nfo")
 
+			/*
+				Since we may have multiple videos, some video folders
+				may not have a .nfo file or it may parse incorrectly.
+				If this is the case, we can just continue in order
+				for scanning to continue and not disrupt other videos.
+			*/
+
 			if _, err := os.Stat(nfoPath); err != nil {
-				return nil, nil, fmt.Errorf("missing .nfo file for folder %v", folderName)
+				continue
 			}
 
 			metadata, err := parseNfoFile(nfoPath)
 
 			if err != nil {
-				return nil, nil, fmt.Errorf("failed to parse .nfo for %v: %w", folderName, err)
+				continue
 			}
 
 			videos = append(videos, db.Video{
 				Title:  metadata.Title,
-				Slug:   folderName,
+				Slug:   utils.TitleToSnake(folderName),
 				Studio: metadata.Studio,
 				Tags:   metadata.Tags,
 				Actors: metadata.Actors,
@@ -308,12 +315,15 @@ type VideoMetadata struct {
 
 func parseNfoFile(nfoPath string) (VideoMetadata, error) {
 	data, err := os.ReadFile(nfoPath)
+
 	if err != nil {
 		return VideoMetadata{}, err
 	}
 
 	var metadata VideoMetadata
+
 	err = xml.Unmarshal(data, &metadata)
+
 	if err != nil {
 		return VideoMetadata{}, err
 	}

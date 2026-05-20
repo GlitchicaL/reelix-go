@@ -185,13 +185,13 @@ func actorsHandler(w http.ResponseWriter, r *http.Request) {
 	actors, err := db.GetActors(vaultId)
 
 	type ActorsMetadata struct {
-		Actors    []db.Actor `json:"actors"`
-		VaultSlug string     `json:"vaultSlug"`
+		Actors []db.Actor `json:"actors"`
+		Vault  db.Vault   `json:"vault"`
 	}
 
 	data := ActorsMetadata{
-		Actors:    actors,
-		VaultSlug: vault.Slug,
+		Actors: actors,
+		Vault:  *vault,
 	}
 
 	if err != nil {
