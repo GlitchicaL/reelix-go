@@ -82,6 +82,6 @@ func main() {
 
 	router := api.NewRouter()
 
-	fmt.Println("Reelix video server started on http://localhost:8081")
+	fmt.Println("Reelix API server started on http://localhost:8081")
 	log.Fatal(http.ListenAndServe(":8081", router))
 }

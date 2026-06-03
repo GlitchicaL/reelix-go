@@ -1,0 +1,13 @@
+services:
+  api:
+    command: air
+    volumes:
+      - .:/app
+      - go-cache:/go/pkg/mod
+      - go-build-cache:/root/.cache/go-build
+    environment:
+      - AIR_WD=/app
+
+volumes:
+  go-cache:
+  go-build-cache:
