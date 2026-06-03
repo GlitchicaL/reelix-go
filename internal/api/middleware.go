@@ -20,7 +20,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 
 		claims, err := validateJWT(tokenStr)
 		if err != nil {
-			log.Printf("unable to validate token %v: %v", tokenStr, err)
+			log.Printf("unable to validate auth token %v: %v", tokenStr, err)
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}

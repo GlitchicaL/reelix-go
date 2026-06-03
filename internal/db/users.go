@@ -101,6 +101,27 @@ func SetUserRefreshToken(id int, hashedToken string, tokenExpiryDate time.Time) 
 	return nil
 }
 
+func RemoveUserRefreshToken(id int) error {
+	query := `
+		UPDATE users
+		SET refresh_token_hash = NULL,
+			refresh_token_expiry_date = NULL
+		WHERE id = $1
+	`
+
+	_, err := db.Exec(
+		context.Background(),
+		query,
+		id,
+	)
+
+	if err != nil {
+		return fmt.Errorf("remove refresh token: %w", err)
+	}
+
+	return nil
+}
+
 func GetUserCount() (int, error) {
 	query := `SELECT COUNT(*) FROM users`
 

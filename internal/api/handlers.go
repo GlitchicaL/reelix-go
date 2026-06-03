@@ -324,12 +324,12 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		log.Printf("invalid json: %v", err)
-		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		http.Error(w, "Invalid JSON", http.StatusUnauthorized)
 		return
 	}
 
 	if input.Username == "" || input.Password == "" {
-		http.Error(w, "Username and password are required", http.StatusBadRequest)
+		http.Error(w, "Username and password are required", http.StatusUnauthorized)
 		return
 	}
 
@@ -372,6 +372,13 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	/*
+		Even though the access cookie has same age as the
+		refresh cookie, the JWT expiry claim is set to 15 minutes.
+		This is to just avoid cases where the frontend has no access
+		cookie and will allow for silent refreshing.
+	*/
+
 	refreshCookie := &http.Cookie{
 		Name:     "reelix_refresh_token",
 		Value:    refreshToken,
@@ -398,7 +405,6 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, accessCookie)
 
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"token":    accessToken,
 		"user":     user.Username,
 		"is_admin": user.IsAdmin,
 	})
@@ -409,7 +415,7 @@ func refreshHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		log.Printf("refresh token not passed: %v", err)
-		http.Error(w, "Refresh token error", http.StatusInternalServerError)
+		http.Error(w, "Refresh token error", http.StatusUnauthorized)
 		return
 	}
 
@@ -426,7 +432,9 @@ func refreshHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if time.Now().After(user.RefreshTokenExpiryDate) {
-		// logout
+		log.Printf("refresh token expired: %v", err)
+		http.Error(w, "Refresh token expired", http.StatusUnauthorized)
+		return
 	}
 
 	accessTokenExp := 15 * time.Minute
@@ -437,6 +445,13 @@ func refreshHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error generating access token", http.StatusInternalServerError)
 		return
 	}
+
+	/*
+		Even though the access cookie has same age as the
+		refresh cookie, the JWT expiry claim is set to 15 minutes.
+		This is to just avoid cases where the frontend has no access
+		cookie and will allow for silent refreshing.
+	*/
 
 	accessCookie := &http.Cookie{
 		Name:     "reelix_auth_token",
@@ -453,14 +468,62 @@ func refreshHandler(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, accessCookie)
 
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"token":    accessToken,
 		"user":     user.Username,
 		"is_admin": user.IsAdmin,
 	})
 }
 
 func logoutHandler(w http.ResponseWriter, r *http.Request) {
+	refreshCookie, err := r.Cookie("reelix_refresh_token")
 
+	if err != nil {
+		log.Printf("refresh token not passed: %v", err)
+		http.Error(w, "Refresh token error", http.StatusUnauthorized)
+		return
+	}
+
+	hash := sha256.Sum256([]byte(refreshCookie.Value))
+	hashedToken := hex.EncodeToString(hash[:])
+
+	user, err := db.GetUserByRefreshToken(hashedToken)
+
+	if err != nil {
+		log.Printf("invalid refresh token: %v", err)
+		http.Error(w, "Invalid refresh token", http.StatusUnauthorized)
+		return
+	}
+
+	err = db.RemoveUserRefreshToken(user.ID)
+
+	if err != nil {
+		http.Error(w, "Server error", http.StatusInternalServerError)
+		return
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "reelix_refresh_token",
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		Secure:   false,
+		MaxAge:   -1,
+	})
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "reelix_auth_token",
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		Secure:   false,
+		MaxAge:   -1,
+	})
+
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"user":     user.Username,
+		"is_admin": user.IsAdmin,
+	})
 }
 
 func generateRefresh(tokenExp int) (token string, hashedToken string, expiresAt time.Time, err error) {
