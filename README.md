@@ -25,8 +25,25 @@ Create .env file with the following values:
 
 ### 2. Start Containers.
 ```bash
-docker compose up --build
+docker-compose up --build
 ```
+
+## Running Tests
+
+### 1. Start Test Container
+```bash
+docker-compose -f docker-compose.test.yml up --build
+```
+
+### 2. Run Tests
+```bash
+go test -tags=test ./...
+```
+
+```bash
+go test -tags=test -v -count=1 ./...
+```
+
 
 ## Setting Up Media
 Each folder in your root path are considered a vault. Each vault should have a *collections/* and *pictures/* folder with an optional *cover.jpg* to represent the image of the vault.

@@ -123,6 +123,16 @@ func RemoveUserRefreshToken(id int) error {
 }
 
 func GetUserCount() (int, error) {
+	/*
+		NOTE: COUNT(*) is typically O(n) as PostgreSQL will scan all visible rows.
+		Ex. For 1,000,000 users, PostgreSQL will scan 1,000,000 rows.
+
+		For the use-case of this application, this will only (for now) be
+		called upon the /register endpoint and millions of users are not
+		expected. However using Redis or a separate statistic table to
+		track user count O(1) could be considered.
+	*/
+
 	query := `SELECT COUNT(*) FROM users`
 
 	var count int

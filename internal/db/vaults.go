@@ -78,7 +78,7 @@ func GetVaults() ([]Vault, error) {
 	)
 
 	if err != nil {
-		return nil, fmt.Errorf("creating vault: %w", err)
+		return nil, fmt.Errorf("fetching vaults: %w", err)
 	}
 	defer rows.Close()
 
@@ -88,14 +88,14 @@ func GetVaults() ([]Vault, error) {
 		var v Vault
 
 		if err := rows.Scan(&v.ID, &v.Name, &v.Slug); err != nil {
-			return nil, fmt.Errorf("creating vault: %w", err)
+			return nil, fmt.Errorf("fetching vaults: %w", err)
 		}
 
 		vaults = append(vaults, v)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("creating vault: %w", err)
+		return nil, fmt.Errorf("fetching vaults: %w", err)
 	}
 
 	return vaults, nil
