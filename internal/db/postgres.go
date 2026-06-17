@@ -35,3 +35,7 @@ func Close() {
 		db.Close()
 	}
 }
+
+func Exec(sql string) {
+	db.Exec(context.Background(), sql)
+}

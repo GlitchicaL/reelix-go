@@ -1,12 +1,42 @@
 services:
-  test-database:
+  integration-database:
     image: postgres:15
-    container_name: reelix-test-db
+    container_name: reelix-integration-db
     environment:
-      POSTGRES_DB: reelix-test-db
+      POSTGRES_DB: reelix-integration-db
       POSTGRES_USER: testuser
       POSTGRES_PASSWORD: testpass
     ports:
       - "5433:5432"
     volumes:
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  playwright-database:
+    image: postgres:15
+    container_name: reelix-playwright-db
+    environment:
+      POSTGRES_DB: reelix-playwright-db
+      POSTGRES_USER: testuser
+      POSTGRES_PASSWORD: testpass
+    ports:
+      - "5434:5432"
+    volumes:
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  test-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    container_name: reelix-test-api
+    ports:
+      - "8082:8082"
+    depends_on:
+      - playwright-database
+    environment:
+      - DB_HOST=playwright-database
+      - DB_PORT=5432
+      - DB_NAME=reelix-playwright-db
+      - DB_USER=testuser
+      - DB_PASSWORD=testpass
+      - JWT_SECRET=${JWT_SECRET}
+    restart: unless-stopped

@@ -1,43 +1,27 @@
-package db
+package db_test
 
 import (
+	"reelix-go/internal/db"
+	"reelix-go/internal/testdata"
+	"reelix-go/internal/testutil"
 	"testing"
 )
 
-func SeedVaults(t *testing.T) ([]Vault, error) {
-	vaults := []Vault{
-		{
-			Name: "Vault 1",
-			Slug: "vault_1",
-		},
-		{
-			Name: "Vault 2",
-			Slug: "vault_2",
-		},
-	}
-
-	dbVaults, err := CreateVaults(vaults)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return dbVaults, nil
-}
-
 func TestCreateVaults(t *testing.T) {
-	SetupConnection(t)
+	testutil.SetupConnection(DB_TEST_URL)
 
-	if _, err := SeedVaults(t); err != nil {
+	if _, err := testdata.SeedVaults(); err != nil {
 		t.Errorf("expected no error, got %v", err)
 	}
+
+	testutil.Clean()
 }
 
 func TestGetVaults(t *testing.T) {
-	SetupConnection(t)
-	vaults, _ := SeedVaults(t)
+	testutil.SetupConnection(DB_TEST_URL)
+	vaults, _ := testdata.SeedVaults()
 
-	dbVaults, err := GetVaults()
+	dbVaults, err := db.GetVaults()
 
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
@@ -49,10 +33,10 @@ func TestGetVaults(t *testing.T) {
 }
 
 func TestGetVault(t *testing.T) {
-	SetupConnection(t)
-	vaults, _ := SeedVaults(t)
+	testutil.SetupConnection(DB_TEST_URL)
+	vaults, _ := testdata.SeedVaults()
 
-	vault, err := GetVault(vaults[0].ID)
+	vault, err := db.GetVault(vaults[0].ID)
 
 	if err != nil {
 		t.Errorf("expected no error, got %v", err)
@@ -61,4 +45,6 @@ func TestGetVault(t *testing.T) {
 	if vaults[0].Name != vault.Name {
 		t.Errorf("vault %s does not match vault %s", vaults[0].Name, vault.Name)
 	}
+
+	testutil.Clean()
 }
