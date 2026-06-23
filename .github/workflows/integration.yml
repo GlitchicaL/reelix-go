@@ -13,7 +13,6 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Start Backend Test Environment
-      working-directory: backend
       env:
         JWT_SECRET: ${{ secrets.JWT_SECRET }}
       run: |
@@ -36,12 +35,10 @@ jobs:
 
     - name: Show Docker Logs
       if: failure()
-      working-directory: backend
       run: |
         docker compose -f docker-compose.test.yml logs
 
     - name: Stop Backend Services
       if: always()
-      working-directory: backend
       run: |
         docker compose -f docker-compose.test.yml down -v
