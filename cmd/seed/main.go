@@ -49,6 +49,8 @@ func main() {
 
 	testdata.SeedVaults()
 
+	testdata.SeedUser()
+
 	router := api.NewRouter()
 
 	fmt.Println("Reelix Test API server started on http://localhost:8082")

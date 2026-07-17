@@ -18,7 +18,7 @@ type User struct {
 func CreateUser(username string, password string, isAdmin bool) (*User, error) {
 	query := `
 		INSERT INTO users (username, password_hash, is_admin) VALUES ($1, $2, $3)
-		RETURNING id
+		RETURNING id, username, is_admin
 	`
 
 	var u User
@@ -29,7 +29,7 @@ func CreateUser(username string, password string, isAdmin bool) (*User, error) {
 		username,
 		password,
 		isAdmin,
-	).Scan(&u.ID)
+	).Scan(&u.ID, &u.Username, &u.IsAdmin)
 
 	if err != nil {
 		return nil, fmt.Errorf("creating user: %w", err)

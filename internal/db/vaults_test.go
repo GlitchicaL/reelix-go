@@ -24,7 +24,7 @@ func TestGetVaults(t *testing.T) {
 	dbVaults, err := db.GetVaults()
 
 	if err != nil {
-		t.Errorf("Expected no error, got %v", err)
+		t.Errorf("expected no error, got %v", err)
 	}
 
 	if len(vaults) != len(dbVaults) {

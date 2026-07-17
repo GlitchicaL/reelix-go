@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"reelix-go/internal/utils"
 )
 
 func AuthMiddleware(next http.Handler) http.Handler {
@@ -18,7 +19,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 
 		tokenStr := cookie.Value
 
-		claims, err := validateJWT(tokenStr)
+		claims, err := utils.ValidateJWT(tokenStr)
 		if err != nil {
 			log.Printf("unable to validate auth token %v: %v", tokenStr, err)
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)

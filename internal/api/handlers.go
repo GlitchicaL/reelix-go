@@ -1,21 +1,17 @@
 package api
 
 import (
-	"crypto/rand"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"strconv"
 	"time"
 
 	"reelix-go/internal/db"
+	"reelix-go/internal/utils"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/mux"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -347,10 +343,11 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	refreshTokenExp := 60 * 60 * 24 * 7 // 1 week
-	accessTokenExp := 15 * time.Minute  // 15 minutes
+	refreshTokenDays := 7 // 7 days
+	refreshTokenExp := 60 * 60 * 24 * refreshTokenDays
+	accessTokenExp := 15 * time.Minute
 
-	refreshToken, hashedRefreshToken, refreshTokenExpiresAt, err := generateRefresh(refreshTokenExp)
+	refreshToken, hashedRefreshToken, refreshTokenExpiresAt, err := utils.GenerateRefresh(refreshTokenDays)
 
 	if err != nil {
 		log.Printf("error generating refresh token: %v", err)
@@ -358,7 +355,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	accessToken, err := generateJWT(user.Username, user.IsAdmin, accessTokenExp)
+	accessToken, err := utils.GenerateJWT(user.Username, user.IsAdmin, accessTokenExp)
 
 	if err != nil {
 		log.Printf("error generating access token: %v", err)
@@ -438,7 +435,7 @@ func refreshHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	accessTokenExp := 15 * time.Minute
-	accessToken, err := generateJWT(user.Username, user.IsAdmin, accessTokenExp)
+	accessToken, err := utils.GenerateJWT(user.Username, user.IsAdmin, accessTokenExp)
 
 	if err != nil {
 		log.Printf("error generating access token: %v", err)
@@ -524,72 +521,4 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 		"user":     user.Username,
 		"is_admin": user.IsAdmin,
 	})
-}
-
-func generateRefresh(tokenExp int) (token string, hashedToken string, expiresAt time.Time, err error) {
-	b := make([]byte, 32) // 256-bit token
-	if _, err = rand.Read(b); err != nil {
-		return "", "", time.Time{}, err
-	}
-
-	token = base64.RawURLEncoding.EncodeToString(b)
-
-	hash := sha256.Sum256([]byte(token))
-	hashedToken = hex.EncodeToString(hash[:])
-
-	expiresAt = time.Now().Add(time.Duration(tokenExp))
-
-	return token, hashedToken, expiresAt, nil
-}
-
-type Claims struct {
-	Username string `json:"username"`
-	IsAdmin  bool   `json:"is_admin"`
-	jwt.RegisteredClaims
-}
-
-func generateJWT(username string, isAdmin bool, tokenExp time.Duration) (string, error) {
-	claims := Claims{
-		Username: username,
-		IsAdmin:  isAdmin,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(tokenExp))),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-		},
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
-	jwtSecret := os.Getenv("JWT_SECRET")
-
-	jwt, err := token.SignedString([]byte(jwtSecret))
-
-	if err != nil {
-		return "", err
-	}
-
-	return jwt, nil
-}
-
-func validateJWT(tokenStr string) (*Claims, error) {
-	jwtSecret := os.Getenv("JWT_SECRET")
-
-	token, err := jwt.ParseWithClaims(tokenStr, &Claims{}, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-
-		return []byte(jwtSecret), nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	claims, ok := token.Claims.(*Claims)
-	if !ok {
-		return nil, fmt.Errorf("invalid claims")
-	}
-
-	return claims, nil
 }
