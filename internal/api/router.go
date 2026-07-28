@@ -27,6 +27,7 @@ func NewRouter() *mux.Router {
 
 	protected.HandleFunc("/videos/{collectionId}", videosHandler).Methods("GET")
 	protected.HandleFunc("/video/{videoId}", videoHandler).Methods("GET")
+	protected.HandleFunc("/video/{videoId}/stream", streamHandler).Methods("POST")
 
 	protected.HandleFunc("/galleries/{vaultId}", galleriesHandler).Methods("GET")
 	protected.HandleFunc("/gallery/{galleryId}", galleryHandler).Methods("GET")

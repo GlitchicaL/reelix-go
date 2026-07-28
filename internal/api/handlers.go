@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"reelix-go/internal/db"
+	"reelix-go/internal/transcoder"
 	"reelix-go/internal/utils"
 
 	"github.com/gorilla/mux"
@@ -520,5 +521,42 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"user":     user.Username,
 		"is_admin": user.IsAdmin,
+	})
+}
+
+var manager = transcoder.NewTranscodeManager(2)
+
+type StreamRequest struct {
+	Quality string `json:"quality"`
+}
+
+func streamHandler(w http.ResponseWriter, r *http.Request) {
+
+	vars := mux.Vars(r)
+	videoID := vars["videoId"]
+
+	req := StreamRequest{
+		Quality: "720",
+	}
+
+	// Once we have the videoId, we can request for the metadata? vaultSlug, collectionSlug, videoSlug?
+
+	_ = json.NewDecoder(r.Body).Decode(&req)
+
+	// "/reelix/vaults/"+vaultSlug+"/collections/"+collectionSlug+"/"+videoSlug+"/"+videoSlug+".mp4",
+
+	session, err := manager.Start(
+		videoID,
+		"/reelix/vaults/gaming/collections/return_of_verdansk/ranked_in_verdansk/ranked_in_verdansk.mp4",
+		req.Quality,
+	)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(map[string]string{
+		"playlist": "/cdn/hls/" + session.ID + "/index.m3u8",
 	})
 }
