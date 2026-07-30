@@ -146,10 +146,15 @@ func GetVideos(collectionId int) ([]Video, error) {
 func GetVideo(videoId int) (*Video, error) {
 	query := `
         SELECT 
+            v.id,
             v.title,
             v.slug,
 			v.studio,
+            c.id AS collection_id,
+            c.name AS collection_name,
             c.slug AS collection_slug,
+            va.id AS vault_id,
+            va.name AS vault_name,
             va.slug AS vault_slug,
 			COALESCE(ARRAY_AGG(DISTINCT t.name) FILTER (WHERE t.name IS NOT NULL), '{}') AS tags,
 			COALESCE(
@@ -165,7 +170,7 @@ func GetVideo(videoId int) (*Video, error) {
         JOIN 
             vaults va ON c.vault_id = va.id
 		LEFT JOIN 
-    		video_tags vt ON vt.video_id = v.id
+     		video_tags vt ON vt.video_id = v.id
 		LEFT JOIN 
 			tags t ON t.id = vt.tag_id
 		LEFT JOIN 
@@ -175,7 +180,7 @@ func GetVideo(videoId int) (*Video, error) {
         WHERE 
             v.id = $1
 		GROUP BY 
-    		v.id, c.slug, va.slug
+     		v.id, c.id, c.name, c.slug, va.id, va.name, va.slug
         LIMIT 1
     `
 
@@ -185,11 +190,51 @@ func GetVideo(videoId int) (*Video, error) {
 		context.Background(),
 		query,
 		videoId,
-	).Scan(&v.Title, &v.Slug, &v.Studio, &v.CollectionSlug, &v.VaultSlug, &v.Tags, &v.Actors)
+	).Scan(&v.ID, &v.Title, &v.Slug, &v.Studio, &v.CollectionID, &v.CollectionName, &v.CollectionSlug, &v.VaultID, &v.VaultName, &v.VaultSlug, &v.Tags, &v.Actors)
 
 	if err != nil {
 		return nil, fmt.Errorf("fetching video: %w", err)
 	}
 
 	return &v, nil
+}
+
+type VideoPath struct {
+	ID   int
+	Path string
+}
+
+func GetVideoPath(videoId int) (*VideoPath, error) {
+	query := `
+		SELECT 
+			v.id,
+			va.slug AS vault_slug,
+			c.slug AS collection_slug,
+			v.slug AS video_slug
+		FROM 
+			videos v
+		JOIN 
+			collections c ON v.collection_id = c.id
+		JOIN 
+			vaults va ON c.vault_id = va.id
+		WHERE 
+			v.id = $1
+	`
+
+	var vp VideoPath
+	var vaultSlug, collectionSlug, videoSlug string
+
+	err := db.QueryRow(
+		context.Background(),
+		query,
+		videoId,
+	).Scan(&vp.ID, &vaultSlug, &collectionSlug, &videoSlug)
+
+	if err != nil {
+		return nil, fmt.Errorf("fetching video path: %w", err)
+	}
+
+	vp.Path = fmt.Sprintf("/reelix/vaults/%s/collections/%s/%s/%s.mp4", vaultSlug, collectionSlug, videoSlug, videoSlug)
+
+	return &vp, nil
 }

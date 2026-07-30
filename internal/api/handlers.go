@@ -152,10 +152,41 @@ func videoHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Respond with the metadata as JSON
+	type VideoResponse struct {
+		ID             int        `json:"id"`
+		Title          string     `json:"title"`
+		Slug           string     `json:"slug"`
+		Studio         string     `json:"studio"`
+		Tags           []string   `json:"tags"`
+		Actors         []db.Actor `json:"actors"`
+		CollectionID   int        `json:"collectionId"`
+		CollectionName string     `json:"collectionName"`
+		CollectionSlug string     `json:"collectionSlug"`
+		VaultID        int        `json:"vaultId"`
+		VaultName      string     `json:"vaultName"`
+		VaultSlug      string     `json:"vaultSlug"`
+		Qualities      []string   `json:"qualities"`
+	}
+
+	response := VideoResponse{
+		ID:             video.ID,
+		Title:          video.Title,
+		Slug:           video.Slug,
+		Studio:         video.Studio,
+		Tags:           video.Tags,
+		Actors:         video.Actors,
+		CollectionID:   video.CollectionID,
+		CollectionName: video.CollectionName,
+		CollectionSlug: video.CollectionSlug,
+		VaultID:        video.VaultID,
+		VaultName:      video.VaultName,
+		VaultSlug:      video.VaultSlug,
+		Qualities:      transcoder.GetAvailableQualities(),
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 
-	if err := json.NewEncoder(w).Encode(video); err != nil {
+	if err := json.NewEncoder(w).Encode(response); err != nil {
 		http.Error(w, "Unable to encode metadata", http.StatusInternalServerError)
 	}
 }
@@ -531,30 +562,40 @@ type StreamRequest struct {
 }
 
 func streamHandler(w http.ResponseWriter, r *http.Request) {
-
 	vars := mux.Vars(r)
-	videoID := vars["videoId"]
+	videoIDStr := vars["videoId"]
 
-	req := StreamRequest{
-		Quality: "720",
+	videoID, err := strconv.Atoi(videoIDStr)
+	if err != nil {
+		log.Printf("invalid video id: %v", err)
+		http.Error(w, "Invalid video ID", http.StatusBadRequest)
+		return
 	}
 
-	// Once we have the videoId, we can request for the metadata? vaultSlug, collectionSlug, videoSlug?
+	req := StreamRequest{
+		Quality: "medium",
+	}
 
-	_ = json.NewDecoder(r.Body).Decode(&req)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("invalid quality request: %v", err)
+	}
 
-	// "/reelix/vaults/"+vaultSlug+"/collections/"+collectionSlug+"/"+videoSlug+"/"+videoSlug+".mp4",
+	video, err := db.GetVideoPath(videoID)
+	if err != nil {
+		log.Printf("error fetching video path %d: %v", videoID, err)
+		http.Error(w, "Video not found", http.StatusNotFound)
+		return
+	}
 
-	session, err := manager.Start(
-		videoID,
-		"/reelix/vaults/gaming/collections/return_of_verdansk/ranked_in_verdansk/ranked_in_verdansk.mp4",
-		req.Quality,
-	)
+	session, err := manager.Start(videoIDStr, video.Path, req.Quality)
 
 	if err != nil {
+		log.Printf("error starting transcode session: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	manager.Touch(session.ID)
 
 	json.NewEncoder(w).Encode(map[string]string{
 		"playlist": "/cdn/hls/" + session.ID + "/index.m3u8",
