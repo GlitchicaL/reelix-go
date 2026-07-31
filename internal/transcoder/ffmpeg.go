@@ -39,8 +39,7 @@ func BuildFFmpegCommand(profile QualityProfile, inputPath, outputDir string) *ex
 		"-b:a", "128k",
 		"-f", "hls",
 		"-hls_time", "4",
-		"-hls_list_size", "15",
-		"-hls_flags", "delete_segments",
+		"-hls_list_size", "0",
 		"-start_number", "0",
 		filepath.Join(outputDir, "index.m3u8"),
 	)

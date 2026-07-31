@@ -33,10 +33,23 @@ func (m *TranscodeManager) cleanupCycle(timeout time.Duration) {
 		isExpired := time.Since(session.LastSeen) > timeout
 
 		if isZombie {
-			log.Printf("[%s] Zombie detected, cleaning up", session.ID)
-			m.cleanupSession(session, key)
-			zombieCount++
-			continue
+			if session.Completed {
+				log.Printf("[%s] FFmpeg completed normally, keeping segments until idle timeout", session.ID)
+				if isExpired {
+					log.Printf("[%s] Completed session idle timeout", session.ID)
+					session.State = "expired"
+					os.RemoveAll(session.Directory)
+					delete(m.sessions, key)
+					expiredCount++
+					log.Printf("[%s] Session deleted from cache", session.ID)
+				}
+				continue
+			} else {
+				log.Printf("[%s] FFmpeg crashed, immediate cleanup", session.ID)
+				m.cleanupSession(session, key)
+				zombieCount++
+				continue
+			}
 		}
 
 		if isExpired && session.State != "expired" {

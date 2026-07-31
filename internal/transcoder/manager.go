@@ -22,6 +22,7 @@ type Session struct {
 	CreatedAt   time.Time
 	State       string
 	AccessCount int
+	Completed   bool
 }
 
 type TranscodeManager struct {
@@ -102,6 +103,7 @@ func (m *TranscodeManager) Start(videoId, video, quality string) (*Session, erro
 			log.Printf("[%s] FFmpeg failed: %v\nOutput: %s", session.ID, err, string(output))
 		} else {
 			log.Printf("[%s] FFmpeg completed\nOutput: %s", session.ID, string(output))
+			session.Completed = true
 		}
 
 		m.mu.Lock()
