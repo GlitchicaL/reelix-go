@@ -1,7 +1,6 @@
 package scanner
 
 import (
-	"encoding/xml"
 	"fmt"
 	"log"
 	"os"
@@ -103,8 +102,12 @@ func Scan(root string) (World, error) {
 
 				for _, tag := range tags {
 					if _, exists := tagsSeen[tag]; !exists {
+						mu.Lock()
+
 						tagsSeen[tag] = struct{}{}
 						vaultState.Tags = append(vaultState.Tags, db.Tag{Name: tag})
+
+						mu.Unlock()
 					}
 				}
 
@@ -136,14 +139,40 @@ func scanVaults(rootPath string) ([]db.Vault, error) {
 	entries, err := os.ReadDir(vaultsPath)
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to read vault: %w", err)
+		return nil, fmt.Errorf("failed to read vaults: %w", err)
 	}
 
-	var vaults []db.Vault
+	if len(entries) == 0 {
+		return nil, fmt.Errorf("no vaults detected")
+	}
+
+	/*
+		Since we know the maximum amount of entries,
+		we can preallocate the slice.
+	*/
+
+	vaults := make([]db.Vault, 0, len(entries))
 
 	for _, entry := range entries {
 		if entry.IsDir() {
 			vaultName := entry.Name()
+			vaultPath := filepath.Join(vaultsPath, vaultName)
+
+			/*
+				Since the vault is the root for future scans,
+				if the dir is empty, no need to append it and
+				add more loops.
+
+				We don't care about the function returning
+				an error. If there is an error, we treat it
+				as an empty dir and continue
+			*/
+
+			isEmpty, _ := utils.IsDirEmpty(vaultPath)
+
+			if isEmpty {
+				continue
+			}
 
 			vaults = append(vaults, db.Vault{
 				Name: utils.ToTitle(vaultName),
@@ -164,14 +193,22 @@ func scanGalleries(picturePath string) ([]db.Gallery, error) {
 		return nil, fmt.Errorf("scan galleries: %w", err)
 	}
 
-	var galleries []db.Gallery
+	/*
+		Since we know the maximum amount of entries,
+		we can preallocate the slice.
+	*/
+
+	galleries := make([]db.Gallery, 0, len(entries))
 
 	for _, entry := range entries {
 		if entry.IsDir() {
 			galleryName := entry.Name()
 
-			// We ignore the actors/ folder as there
-			// is a separate scanning/syncing flow for actors.
+			/*
+				We ignore the actors/ folder as there
+				is a separate scanning flow for actors.
+			*/
+
 			if galleryName == "actors" {
 				continue
 			}
@@ -212,7 +249,12 @@ func scanActors(path string) ([]db.Actor, error) {
 		return nil, fmt.Errorf("scanning actors: %w", err)
 	}
 
-	var actors []db.Actor
+	/*
+		Since we know the maximum amount of entries,
+		we can preallocate the slice.
+	*/
+
+	actors := make([]db.Actor, 0, len(entries))
 
 	for _, entry := range entries {
 		actor := strings.TrimSuffix(entry.Name(), ".jpg")
@@ -235,7 +277,12 @@ func scanCollections(vaultPath string) ([]db.Collection, error) {
 		return nil, fmt.Errorf("scan collections: %w", err)
 	}
 
-	var collections []db.Collection
+	/*
+		Since we know the maximum amount of entries,
+		we can preallocate the slice.
+	*/
+
+	collections := make([]db.Collection, 0, len(entries))
 
 	for _, entry := range entries {
 		if entry.IsDir() {
@@ -261,7 +308,15 @@ func scanVideos(collectionPath string) ([]db.Video, []string, error) {
 		return nil, nil, fmt.Errorf("scan videos: %w", err)
 	}
 
-	var videos []db.Video
+	/*
+		Since we know the maximum amount of entries,
+		we can preallocate the slice.
+
+		Since tags can vary per video, we don't know
+		how many tags we may end up with.
+	*/
+
+	videos := make([]db.Video, 0, len(entries))
 	var tags []string
 
 	for _, entry := range entries {
@@ -280,7 +335,7 @@ func scanVideos(collectionPath string) ([]db.Video, []string, error) {
 				continue
 			}
 
-			metadata, err := parseNfoFile(nfoPath)
+			metadata, err := utils.ParseNfoFile(nfoPath)
 
 			if err != nil {
 				continue
@@ -304,29 +359,4 @@ func scanVideos(collectionPath string) ([]db.Video, []string, error) {
 	log.Printf("tags scanned: %v", len(tags))
 
 	return videos, tags, nil
-}
-
-type VideoMetadata struct {
-	Title  string     `xml:"title"`
-	Studio string     `xml:"studio"`
-	Tags   []string   `xml:"tag"`
-	Actors []db.Actor `xml:"actor"`
-}
-
-func parseNfoFile(nfoPath string) (VideoMetadata, error) {
-	data, err := os.ReadFile(nfoPath)
-
-	if err != nil {
-		return VideoMetadata{}, err
-	}
-
-	var metadata VideoMetadata
-
-	err = xml.Unmarshal(data, &metadata)
-
-	if err != nil {
-		return VideoMetadata{}, err
-	}
-
-	return metadata, nil
 }
