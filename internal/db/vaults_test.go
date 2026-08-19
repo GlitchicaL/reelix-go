@@ -30,6 +30,8 @@ func TestGetVaults(t *testing.T) {
 	if len(vaults) != len(dbVaults) {
 		t.Errorf("lengths of vaults do not match")
 	}
+
+	testutil.Clean()
 }
 
 func TestGetVault(t *testing.T) {
