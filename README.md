@@ -32,7 +32,7 @@ docker-compose up --build
 
 ### 1. Start Test Container
 ```bash
-docker-compose -f docker-compose.test.yml up --build
+docker-compose -f compose.test.yml up --build
 ```
 
 ### 2. Run Tests

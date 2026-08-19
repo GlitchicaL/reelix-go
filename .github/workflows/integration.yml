@@ -17,7 +17,7 @@ jobs:
         JWT_SECRET: ${{ secrets.JWT_SECRET }}
       run: |
         docker compose \
-          -f docker-compose.test.yml \
+          -f compose.test.yml \
           up -d --build
 
     - name: Wait For API
@@ -36,9 +36,9 @@ jobs:
     - name: Show Docker Logs
       if: failure()
       run: |
-        docker compose -f docker-compose.test.yml logs
+        docker compose -f compose.test.yml logs
 
     - name: Stop Backend Services
       if: always()
       run: |
-        docker compose -f docker-compose.test.yml down -v
+        docker compose -f compose.test.yml down -v
