@@ -6,13 +6,14 @@ import (
 )
 
 type Collection struct {
-	ID        int    `json:"id"`
-	Name      string `json:"name"`
-	Slug      string `json:"slug"`
-	Path      string `json:"path"`
-	VaultID   int    `json:"vaultId"`
-	VaultName string `json:"vaultName"`
-	VaultSlug string `json:"vaultSlug"`
+	ID         int    `json:"id"`
+	Name       string `json:"name"`
+	Slug       string `json:"slug"`
+	Path       string `json:"path"`
+	VaultID    int    `json:"vaultId"`
+	VaultName  string `json:"vaultName"`
+	VaultSlug  string `json:"vaultSlug"`
+	VideoCount int    `json:"videoCount"`
 }
 
 func CreateCollections(collections []Collection) ([]Collection, error) {
@@ -90,7 +91,12 @@ func GetCollections(vaultId int) ([]Collection, error) {
 			c.name AS collection_name, 
 			c.slug AS collection_slug,
 			v.name AS vault_name,
-			v.slug AS vault_slug
+			v.slug AS vault_slug,
+			(
+				SELECT COUNT(*)
+				FROM videos vid
+				WHERE vid.collection_id = c.id
+			) AS video_count
 		FROM 
 			collections c
 		JOIN 
@@ -115,7 +121,7 @@ func GetCollections(vaultId int) ([]Collection, error) {
 	for rows.Next() {
 		var c Collection
 
-		if err := rows.Scan(&c.ID, &c.Name, &c.Slug, &c.VaultName, &c.VaultSlug); err != nil {
+		if err := rows.Scan(&c.ID, &c.Name, &c.Slug, &c.VaultName, &c.VaultSlug, &c.VideoCount); err != nil {
 			return nil, fmt.Errorf("fetching collections: %w", err)
 		}
 
@@ -127,4 +133,41 @@ func GetCollections(vaultId int) ([]Collection, error) {
 	}
 
 	return collections, nil
+}
+
+func GetCollection(collectionId int) (*Collection, error) {
+	query := `
+		SELECT 
+			c.id, 
+			c.name AS collection_name, 
+			c.slug AS collection_slug,
+			v.id AS vault_id,
+			v.name AS vault_name,
+			v.slug AS vault_slug,
+			(
+				SELECT COUNT(*)
+				FROM videos vid
+				WHERE vid.collection_id = c.id
+			) AS video_count
+		FROM 
+			collections c
+		JOIN 
+			vaults v ON c.vault_id = v.id
+		WHERE 
+			c.id = $1
+	`
+
+	var c Collection
+
+	err := db.QueryRow(
+		context.Background(),
+		query,
+		collectionId,
+	).Scan(&c.ID, &c.Name, &c.Slug, &c.VaultID, &c.VaultName, &c.VaultSlug, &c.VideoCount)
+
+	if err != nil {
+		return nil, fmt.Errorf("fetching collection: %w", err)
+	}
+
+	return &c, nil
 }

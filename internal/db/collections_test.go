@@ -45,3 +45,28 @@ func TestGetCollections(t *testing.T) {
 
 	testutil.Clean()
 }
+
+func TestGetCollection(t *testing.T) {
+	testutil.SetupConnection(DB_TEST_URL)
+	collections, _ := testdata.SeedCollections()
+
+	dbCollection, err := db.GetCollection(collections[0].ID)
+
+	if err != nil {
+		t.Errorf("expected no error, got %v", err)
+	}
+
+	if collections[0].ID != dbCollection.ID {
+		t.Errorf("collection id do not match")
+	}
+
+	if collections[0].Name != dbCollection.Name {
+		t.Errorf("collection name do not match")
+	}
+
+	if collections[0].Slug != dbCollection.Slug {
+		t.Errorf("collection slug do not match")
+	}
+
+	testutil.Clean()
+}

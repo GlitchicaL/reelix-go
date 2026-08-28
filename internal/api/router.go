@@ -23,6 +23,7 @@ func NewRouter() *mux.Router {
 	protected.HandleFunc("/vaults", vaultsHandler).Methods("GET")
 	protected.HandleFunc("/vault/{vaultId}", vaultHandler).Methods("GET")
 
+	protected.HandleFunc("/collection/{collectionId}", collectionHandler).Methods("GET")
 	protected.HandleFunc("/collections/{vaultId}", collectionsHandler).Methods("GET")
 
 	protected.HandleFunc("/videos/{collectionId}", videosHandler).Methods("GET")

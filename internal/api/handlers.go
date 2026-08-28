@@ -105,6 +105,33 @@ func collectionsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func collectionHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+
+	collectionId, err := strconv.Atoi(vars["collectionId"])
+
+	if err != nil {
+		log.Printf("invalid vault id: %v", err)
+		http.Error(w, "Unknown error", http.StatusInternalServerError)
+		return
+	}
+
+	vault, err := db.GetCollection(collectionId)
+
+	if err != nil {
+		log.Printf("error fetching collection %d: %v", collectionId, err)
+		http.Error(w, "Unknown error", http.StatusInternalServerError)
+		return
+	}
+
+	// Respond with the metadata as JSON
+	w.Header().Set("Content-Type", "application/json")
+
+	if err := json.NewEncoder(w).Encode(vault); err != nil {
+		http.Error(w, "Unable to encode metadata", http.StatusInternalServerError)
+	}
+}
+
 func videosHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 

@@ -134,6 +134,7 @@ HTTP routing via `gorilla/mux` with JWT authentication (HS256) supporting 15-min
 - `GET /api/vaults` - List all vaults
 - `GET /api/vault/{vaultId}` - Get a single vault by ID
 - `GET /api/collections/{vaultId}` - List all collections within a vault
+- `GET /api/collection/{collectionId}` - Get a single collection by ID
 - `GET /api/videos/{collectionId}` - List all videos within a collection
 - `GET /api/video/{videoId}` - Get a single video with its associated tags and actors
 - `GET /api/galleries/{vaultId}` - List all galleries within a vault
