@@ -111,7 +111,7 @@ func collectionHandler(w http.ResponseWriter, r *http.Request) {
 	collectionId, err := strconv.Atoi(vars["collectionId"])
 
 	if err != nil {
-		log.Printf("invalid vault id: %v", err)
+		log.Printf("invalid collection id: %v", err)
 		http.Error(w, "Unknown error", http.StatusInternalServerError)
 		return
 	}
@@ -224,6 +224,33 @@ func actorsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewEncoder(w).Encode(data); err != nil {
+		http.Error(w, "Unable to encode metadata", http.StatusInternalServerError)
+	}
+}
+
+func actorHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+
+	actorId, err := strconv.Atoi(vars["actorId"])
+
+	if err != nil {
+		log.Printf("invalid actor id: %v", err)
+		http.Error(w, "Unknown error", http.StatusInternalServerError)
+		return
+	}
+
+	actor, err := db.GetActor(actorId)
+
+	if err != nil {
+		log.Printf("error fetching actor %d: %v", actorId, err)
+		http.Error(w, "Unknown error", http.StatusInternalServerError)
+		return
+	}
+
+	// Respond with the metadata as JSON
+	w.Header().Set("Content-Type", "application/json")
+
+	if err := json.NewEncoder(w).Encode(actor); err != nil {
 		http.Error(w, "Unable to encode metadata", http.StatusInternalServerError)
 	}
 }

@@ -33,6 +33,7 @@ func NewRouter() *mux.Router {
 	protected.HandleFunc("/gallery/{galleryId}", galleryHandler).Methods("GET")
 
 	protected.HandleFunc("/actors/{vaultId}", actorsHandler).Methods("GET")
+	protected.HandleFunc("/actor/{actorId}", actorHandler).Methods("GET")
 
 	return r
 }

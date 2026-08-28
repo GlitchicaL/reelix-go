@@ -8,9 +8,10 @@ import (
 )
 
 type Actor struct {
-	ID   int    `json:"id"`
-	Name string `xml:"name" json:"name"`
-	Slug string `json:"slug"`
+	ID          int          `json:"id"`
+	Name        string       `xml:"name" json:"name"`
+	Slug        string       `json:"slug"`
+	Collections []Collection `json:"collections"`
 }
 
 func CreateActors(actors []Actor) ([]Actor, error) {
@@ -205,28 +206,108 @@ func GetActors(vaultId int) ([]Actor, error) {
 	return actors, nil
 }
 
-func GetActor(name string) (*int, error) {
+func GetActor(id int) (*Actor, error) {
 	query := `
-		SELECT 
-			id
-		FROM
-			actors
-		WHERE	
-			name = $1
-		LIMIT 1
+		SELECT DISTINCT
+			a.id AS actor_id,
+			a.name AS actor_name,
+			a.slug AS actor_slug,
+
+			c.id AS collection_id,
+			c.name AS collection_name,
+			c.slug AS collection_slug,
+
+			vault.id AS vault_id,
+			vault.slug AS vault_slug
+
+		FROM actors a
+		LEFT JOIN video_actors va
+			ON va.actor_id = a.id
+		LEFT JOIN videos v
+			ON v.id = va.video_id
+		LEFT JOIN collections c
+			ON c.id = v.collection_id
+		LEFT JOIN vaults vault
+			ON vault.id = c.vault_id
+
+		WHERE a.id = $1
+		ORDER BY c.id;
 	`
 
-	var a Actor
-
-	err := db.QueryRow(
+	rows, err := db.Query(
 		context.Background(),
 		query,
-		name,
-	).Scan(&a.ID)
-
+		id,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("fetching actor: %w", err)
 	}
+	defer rows.Close()
 
-	return &a.ID, nil
+	var actor Actor
+
+	for rows.Next() {
+		var (
+			actorID   int
+			actorName string
+			actorSlug string
+
+			collectionID   *int
+			collectionName *string
+			collectionSlug *string
+
+			vaultID   *int
+			vaultSlug *string
+		)
+
+		err := rows.Scan(
+			&actorID,
+			&actorName,
+			&actorSlug,
+
+			&collectionID,
+			&collectionName,
+			&collectionSlug,
+
+			&vaultID,
+			&vaultSlug,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("scanning actor: %w", err)
+		}
+
+		actor.ID = actorID
+		actor.Name = actorName
+		actor.Slug = actorSlug
+
+		// Because of the LEFT JOINs, collection/vault
+		// fields can be NULL.
+		if collectionID != nil {
+			collection := Collection{
+				ID:   *collectionID,
+				Name: *collectionName,
+				Slug: *collectionSlug,
+			}
+
+			if vaultID != nil {
+				collection.VaultID = *vaultID
+			}
+
+			if vaultSlug != nil {
+				collection.VaultSlug = *vaultSlug
+			}
+
+			actor.Collections = append(actor.Collections, collection)
+		}
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating actor collections: %w", err)
+	}
+
+	if actor.ID == 0 {
+		return nil, fmt.Errorf("actor not found")
+	}
+
+	return &actor, nil
 }
